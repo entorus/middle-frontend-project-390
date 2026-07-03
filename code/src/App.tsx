@@ -1,4 +1,11 @@
 import { Alert, Button, Card, Col, Container, Form, Nav, Row, Stack } from 'react-bootstrap'
+import { useEffect, useState } from 'react'
+
+type City = {
+  code: string;
+  name: string;
+  country: string;
+}
 
 const flights = [
   {
@@ -18,6 +25,18 @@ const flights = [
 ]
 
 function App() {
+  const [citiesList, setCitiesList] = useState<City[]>([])
+
+  useEffect(() => {
+    async function loadCities() {
+      const response = await fetch('http://127.0.0.1:4010/api/cities')
+      const cities: City[] = await response.json()
+      setCitiesList(cities)
+      console.log(111, cities)
+    }
+
+    loadCities()
+  }, [])
   return (
     <Container fluid className="px-0 py-4">
       <Row className="justify-content-center">
@@ -32,7 +51,7 @@ function App() {
               Мои брони
             </Nav.Link>
           </Nav>
-
+          {citiesList.map(city => (<b key={city.code}>{city.name}</b>))}
           <Form data-testid="flight-search-form" className="mb-3">
             <Row className="g-3 align-items-end">
               <Col xs={12} md={6} lg>
