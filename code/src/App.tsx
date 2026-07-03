@@ -1,4 +1,4 @@
-import { Button, Card, Col, Container, Form, Nav, Row, Stack } from 'react-bootstrap'
+import { Alert, Button, Card, Col, Container, Form, Nav, Row, Stack } from 'react-bootstrap'
 
 const flights = [
   {
@@ -33,12 +33,12 @@ function App() {
             </Nav.Link>
           </Nav>
 
-          <Form className="mb-3">
+          <Form data-testid="flight-search-form" className="mb-3">
             <Row className="g-3 align-items-end">
               <Col xs={12} md={6} lg>
                 <Form.Group controlId="fromInput">
                   <Form.Label className="fw-semibold">Откуда</Form.Label>
-                  <Form.Select defaultValue="Москва">
+                  <Form.Select data-testid="search-origin" defaultValue="Москва">
                     <option>Москва</option>
                     <option>Санкт-Петербург</option>
                   </Form.Select>
@@ -48,7 +48,7 @@ function App() {
               <Col xs={12} md={6} lg>
                 <Form.Group controlId="toInput">
                   <Form.Label className="fw-semibold">Куда</Form.Label>
-                  <Form.Select defaultValue="Санкт-Петербург">
+                  <Form.Select data-testid="search-destination" defaultValue="Санкт-Петербург">
                     <option>Санкт-Петербург</option>
                     <option>Москва</option>
                   </Form.Select>
@@ -58,28 +58,28 @@ function App() {
               <Col xs={12} md={6} lg>
                 <Form.Group controlId="dateInput">
                   <Form.Label className="fw-semibold">Дата</Form.Label>
-                  <Form.Control type="date" defaultValue="2026-06-26" />
+                  <Form.Control data-testid="search-date" type="date" defaultValue="2026-06-26" />
                 </Form.Group>
               </Col>
 
               <Col xs={12} md={6} lg>
                 <Form.Group controlId="passengersInput">
                   <Form.Label className="fw-semibold">Пассажиры</Form.Label>
-                  <Form.Control type="number" min="1" defaultValue="1" />
+                  <Form.Control data-testid="search-passengers" type="number" min="1" defaultValue="1" />
                 </Form.Group>
               </Col>
 
               <Col xs={12} lg>
-                <Button type="submit" variant="primary" className="w-100 fw-semibold">
+                <Button data-testid="search-submit" type="submit" variant="primary" className="w-100 fw-semibold">
                   Найти
                 </Button>
               </Col>
             </Row>
           </Form>
 
-          <Stack gap={3}>
+          <Stack data-testid="flight-results" gap={3}>
             {flights.map((flight) => (
-              <Card key={flight.id}>
+              <Card data-testid="flight-result-item" key={flight.id}>
                 <Card.Body className="p-3">
                   <Row className="g-3 align-items-center">
                     <Col>
@@ -102,6 +102,7 @@ function App() {
                           {flight.price}
                         </div>
                         <Button
+                          data-testid="book-flight"
                           type="button"
                           variant="light"
                           className="bg-primary-subtle border-0 px-4 fw-semibold text-primary"
@@ -114,6 +115,12 @@ function App() {
                 </Card.Body>
               </Card>
             ))}
+            <Alert data-testid="flights-empty" variant="warning">
+              Рейсов не найдено
+            </Alert>
+            <Alert data-testid="flights-error" variant="danger">
+              Ошибка поиска
+            </Alert>
           </Stack>
         </Col>
       </Row>
