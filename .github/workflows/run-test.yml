@@ -1,0 +1,10 @@
+name: Run tests
+run-name: Test website work
+on: [push]
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "The job was automatically triggered by a ${{ github.event_name }} event."
+      - run: npm run dev
+      - run: npm run test
