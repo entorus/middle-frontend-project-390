@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Col, Container, Row } from 'react-bootstrap'
-import Header from './partials/header'
+import Header from './partials/Header'
 
 // import BookingPage from './pages/BookingPage'
 import SearchFlightsPage from './pages/SearchFlightsPage'
