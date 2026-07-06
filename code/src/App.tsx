@@ -1,5 +1,5 @@
 import { Alert, Button, Card, Col, Container, Form, Nav, Row, Stack } from 'react-bootstrap'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 
 type City = {
   code: string;
@@ -147,7 +147,7 @@ function App() {
     loadCities()
   }, [])
 
-  const searchFlights = async (e: FormEvent<HTMLFormElement>) => {
+  const searchFlights = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = e.currentTarget
     const formData = new FormData(form)
@@ -229,7 +229,7 @@ function App() {
               </Col>
 
               <Col xs={12} lg>
-                <Button data-testid="search-submit" type="submit" variant="primary" className="w-100 fw-semibold">
+                <Button data-testid="search-submit" type="submit" variant="primary" className="w-100 fw-semibold" disabled={searchStatus === 'submitting'}>
                   Найти
                 </Button>
               </Col>
