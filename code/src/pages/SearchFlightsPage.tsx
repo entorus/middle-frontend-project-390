@@ -83,118 +83,104 @@ export default function SearchFlightsPage () {
   }
 
   return (
-    <Container fluid className="px-0 py-4">
-      <Row className="justify-content-center">
-        <Col xs={12} xxl={10}>
-          <h1 className="mb-3 fw-bold text-black">Бронирование авиабилетов</h1>
+    <>
+      <Form 
+        onSubmit={searchFlights}
+        data-testid="flight-search-form" 
+        className="mb-3"
+      >
+        <Row className="g-3 align-items-end">
+          <Col xs={12} md={6} lg>
+            <Form.Group controlId="fromInput">
+              <Form.Label className="fw-semibold">Откуда</Form.Label>
+              <Form.Select data-testid="search-origin" name='search-origin'>
+                <option value="">Откуда</option>
+                {citiesList.map(city => (<option key={city.code} value={city.code}>{city.name}</option>))}
+              </Form.Select>
+            </Form.Group>
+          </Col>
 
-          <Nav className="gap-3 mb-4">
-            <Nav.Link href="#" className="p-0">
-              Поиск рейсов
-            </Nav.Link>
-            <Nav.Link href="#" className="p-0">
-              Мои брони
-            </Nav.Link>
-          </Nav>
-          <Form 
-            onSubmit={searchFlights}
-            data-testid="flight-search-form" 
-            className="mb-3"
-          >
-            <Row className="g-3 align-items-end">
-              <Col xs={12} md={6} lg>
-                <Form.Group controlId="fromInput">
-                  <Form.Label className="fw-semibold">Откуда</Form.Label>
-                  <Form.Select data-testid="search-origin" name='search-origin'>
-                    <option value="">Откуда</option>
-                    {citiesList.map(city => (<option key={city.code} value={city.code}>{city.name}</option>))}
-                  </Form.Select>
-                </Form.Group>
-              </Col>
+          <Col xs={12} md={6} lg>
+            <Form.Group controlId="toInput">
+              <Form.Label className="fw-semibold">Куда</Form.Label>
+              <Form.Select data-testid="search-destination" name='search-destination'>
+                <option value="">Куда</option>
+                {citiesList.map(city => (<option key={city.code} value={city.code}>{city.name}</option>))}
+              </Form.Select>
+            </Form.Group>
+          </Col>
 
-              <Col xs={12} md={6} lg>
-                <Form.Group controlId="toInput">
-                  <Form.Label className="fw-semibold">Куда</Form.Label>
-                  <Form.Select data-testid="search-destination" name='search-destination'>
-                    <option value="">Куда</option>
-                    {citiesList.map(city => (<option key={city.code} value={city.code}>{city.name}</option>))}
-                  </Form.Select>
-                </Form.Group>
-              </Col>
+          <Col xs={12} md={6} lg>
+            <Form.Group controlId="dateInput">
+              <Form.Label className="fw-semibold">Дата</Form.Label>
+              <Form.Control name="search-date" data-testid="search-date" type="date" defaultValue="2026-06-26" />
+            </Form.Group>
+          </Col>
 
-              <Col xs={12} md={6} lg>
-                <Form.Group controlId="dateInput">
-                  <Form.Label className="fw-semibold">Дата</Form.Label>
-                  <Form.Control name="search-date" data-testid="search-date" type="date" defaultValue="2026-06-26" />
-                </Form.Group>
-              </Col>
+          <Col xs={12} md={6} lg>
+            <Form.Group controlId="passengersInput">
+              <Form.Label className="fw-semibold">Пассажиры</Form.Label>
+              <Form.Control name="search-passengers" data-testid="search-passengers" type="number" min="1" defaultValue="1" />
+            </Form.Group>
+          </Col>
 
-              <Col xs={12} md={6} lg>
-                <Form.Group controlId="passengersInput">
-                  <Form.Label className="fw-semibold">Пассажиры</Form.Label>
-                  <Form.Control name="search-passengers" data-testid="search-passengers" type="number" min="1" defaultValue="1" />
-                </Form.Group>
-              </Col>
+          <Col xs={12} lg>
+            <Button data-testid="search-submit" type="submit" variant="primary" className="w-100 fw-semibold" disabled={searchStatus === 'submitting'}>
+              Найти
+            </Button>
+          </Col>
+        </Row>
+      </Form>
 
-              <Col xs={12} lg>
-                <Button data-testid="search-submit" type="submit" variant="primary" className="w-100 fw-semibold" disabled={searchStatus === 'submitting'}>
-                  Найти
-                </Button>
-              </Col>
-            </Row>
-          </Form>
+      <Stack data-testid="flight-results" gap={3}>
+        {flightsList.map((flight) => (
+          <Card data-testid="flight-result-item" key={flight.id}>
+            <Card.Body className="p-3">
+              <Row className="g-3 align-items-center">
+                <Col>
+                  <Card.Title as="h2" className="h5 mb-1 fw-bold text-black">
+                    {flight.airline.name} · {flight.flightNumber}
+                  </Card.Title>
+                  <Card.Text className="mb-1 text-black">{flight.origin.name} → {flight.destination.name}</Card.Text>
+                  <Card.Text className="mb-0 text-secondary">
+                    {formatDate(flight.departureAt)} — {formatDate(flight.arrivalAt)} {flight.durationMinutes} мин
+                  </Card.Text>
+                </Col>
 
-          <Stack data-testid="flight-results" gap={3}>
-            {flightsList.map((flight) => (
-              <Card data-testid="flight-result-item" key={flight.id}>
-                <Card.Body className="p-3">
-                  <Row className="g-3 align-items-center">
-                    <Col>
-                      <Card.Title as="h2" className="h5 mb-1 fw-bold text-black">
-                        {flight.airline.name} · {flight.flightNumber}
-                      </Card.Title>
-                      <Card.Text className="mb-1 text-black">{flight.origin.name} → {flight.destination.name}</Card.Text>
-                      <Card.Text className="mb-0 text-secondary">
-                        {formatDate(flight.departureAt)} — {formatDate(flight.arrivalAt)} {flight.durationMinutes} мин
-                      </Card.Text>
-                    </Col>
-
-                    <Col xs={12} md="auto">
-                      <Stack
-                        direction="horizontal"
-                        gap={3}
-                        className="justify-content-between justify-content-md-end"
-                      >
-                        <div className="fs-5 fw-bold text-nowrap text-black">
-                          {flight.price.amount} {flight.price.currency}
-                        </div>
-                        <Button
-                          data-testid="book-flight"
-                          type="button"
-                          variant="light"
-                          className="bg-primary-subtle border-0 px-4 fw-semibold text-primary"
-                        >
-                          Забронировать
-                        </Button>
-                      </Stack>
-                    </Col>
-                  </Row>
-                </Card.Body>
-              </Card>
-            ))}
-            {(searchStatus === 'success' && flightsList.length === 0) && (
-              <Alert data-testid="flights-empty" variant="warning">
-                Рейсов не найдено
-              </Alert>
-            )}
-            {searchStatus === 'error' && (
-              <Alert data-testid="flights-error" variant="danger">
-                Ошибка поиска
-              </Alert>
-            )}
-          </Stack>
-        </Col>
-      </Row>
-    </Container>
+                <Col xs={12} md="auto">
+                  <Stack
+                    direction="horizontal"
+                    gap={3}
+                    className="justify-content-between justify-content-md-end"
+                  >
+                    <div className="fs-5 fw-bold text-nowrap text-black">
+                      {flight.price.amount} {flight.price.currency}
+                    </div>
+                    <Button
+                      data-testid="book-flight"
+                      type="button"
+                      variant="light"
+                      className="bg-primary-subtle border-0 px-4 fw-semibold text-primary"
+                    >
+                      Забронировать
+                    </Button>
+                  </Stack>
+                </Col>
+              </Row>
+            </Card.Body>
+          </Card>
+        ))}
+        {(searchStatus === 'success' && flightsList.length === 0) && (
+          <Alert data-testid="flights-empty" variant="warning">
+            Рейсов не найдено
+          </Alert>
+        )}
+        {searchStatus === 'error' && (
+          <Alert data-testid="flights-error" variant="danger">
+            Ошибка поиска
+          </Alert>
+        )}
+      </Stack>
+    </>
   )
 }
