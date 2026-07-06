@@ -2,12 +2,11 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Col, Container, Row } from 'react-bootstrap'
 import Header from './partials/Header'
 
-// import BookingPage from './pages/BookingPage'
+import BookingPage from './pages/BookingPage'
 import SearchFlightsPage from './pages/SearchFlightsPage'
+import NotFoundPage from './pages/NotFoundPage'
 
 function App() {
-  
-  
   return (
     <Container fluid className="px-0 py-4">
       <Row className="justify-content-center">
@@ -16,8 +15,8 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<SearchFlightsPage/> } />
-              {/* <Route path="my-bookings" element={<BookingPage />} />
-              <Route path="*" element={<NotFoundPage />} /> */}
+              <Route path="my-bookings" element={<BookingPage />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </BrowserRouter>
         </Col>
