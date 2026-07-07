@@ -1,6 +1,7 @@
 import formatDate from '../utils/formatDate'
 import { Alert, Button, Card, Col, Form, Row, Stack } from 'react-bootstrap'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 
 type City = {
@@ -11,23 +12,23 @@ type City = {
 
 type Status = 'idle' | 'submitting' | 'success' | 'error'
 
-export interface Airline {
+interface Airline {
   code: string;
   name: string;
 }
 
-export interface LocationInfo {
+interface LocationInfo {
   code: string;
   name: string;
   country: string;
 }
 
-export interface PriceInfo {
+interface PriceInfo {
   amount: number;
   currency: string;
 }
 
-export interface Flight {
+interface Flight {
   id: string;
   flightNumber: string;
   airline: Airline;
@@ -156,14 +157,13 @@ export default function SearchFlightsPage () {
                     <div className="fs-5 fw-bold text-nowrap text-black">
                       {flight.price.amount} {flight.price.currency}
                     </div>
-                    <Button
+                    <Link
+                      to={`booking/${flight.id}`}
                       data-testid="book-flight"
-                      type="button"
-                      variant="light"
-                      className="bg-primary-subtle border-0 px-4 fw-semibold text-primary"
+                      className="bg-primary-subtle border-0 px-4 fw-semibold text-primary btn btn-light"
                     >
                       Забронировать
-                    </Button>
+                    </Link>
                   </Stack>
                 </Col>
               </Row>

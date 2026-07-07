@@ -3,6 +3,7 @@ import { Col, Container, Row } from 'react-bootstrap'
 import Header from './partials/Header'
 
 import BookingPage from './pages/BookingPage'
+import BookingsPage from './pages/BookingsPage'
 import SearchFlightsPage from './pages/SearchFlightsPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -15,7 +16,8 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<SearchFlightsPage/> } />
-              <Route path="my-bookings" element={<BookingPage />} />
+              <Route path="my-bookings" element={<BookingsPage />} />
+              <Route path="booking/:flightId" element={<BookingPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </BrowserRouter>

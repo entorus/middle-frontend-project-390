@@ -6,10 +6,10 @@ export default function Header() {
       <h1 className="mb-3 fw-bold text-black">Бронирование авиабилетов</h1>
 
       <Nav className="gap-3 mb-4">
-        <Nav.Link href="#" className="p-0">
+        <Nav.Link href="/" className="p-0">
           Поиск рейсов
         </Nav.Link>
-        <Nav.Link href="#" className="p-0">
+        <Nav.Link href="/my-bookings" className="p-0">
           Мои брони
         </Nav.Link>
       </Nav>
