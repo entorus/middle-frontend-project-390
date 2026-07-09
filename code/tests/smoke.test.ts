@@ -13,10 +13,8 @@ test('app opens', async () => {
   const isVisible = await heading.isVisible()
   expect(isVisible).toBe(true)
   
-  // Проверяем, что текст в h1 не пустой
   const text = await heading.textContent()
   expect(text?.trim().length).toBeGreaterThan(0)
 
-  // Закрываем браузер
   await browser.close()
 })

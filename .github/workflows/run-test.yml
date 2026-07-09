@@ -33,14 +33,25 @@ jobs:
         env:
           APP_URL: http://127.0.0.1:5173
         run: |
+          npm run build
+
+          make -C .. start &
+          api_pid=$!
+
           npm run dev -- --host 127.0.0.1 &
           server_pid=$!
-          trap 'kill $server_pid' EXIT
+          trap 'kill $server_pid $api_pid 2>/dev/null || true' EXIT
 
           for i in {1..30}; do
             curl --silent --fail "$APP_URL" > /dev/null && break
             sleep 1
           done
 
+          for i in {1..30}; do
+            curl --silent --fail "http://127.0.0.1:8080/api/cities" > /dev/null && break
+            sleep 1
+          done
+
           curl --silent --fail "$APP_URL" > /dev/null
+          curl --silent --fail "http://127.0.0.1:8080/api/cities" > /dev/null
           npm run test -- --run
