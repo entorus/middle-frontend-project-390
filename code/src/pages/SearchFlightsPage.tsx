@@ -2,44 +2,10 @@ import formatDate from '../utils/formatDate'
 import { Alert, Button, Card, Col, Form, Row, Stack } from 'react-bootstrap'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-
-
-type City = {
-  code: string;
-  name: string;
-  country: string;
-}
+import { getCities, searchFlights as searchFlightsRequest } from '../api/flights'
+import { type City, type Flight } from '../api/types'
 
 type Status = 'idle' | 'submitting' | 'success' | 'error'
-
-interface Airline {
-  code: string;
-  name: string;
-}
-
-interface LocationInfo {
-  code: string;
-  name: string;
-  country: string;
-}
-
-interface PriceInfo {
-  amount: number;
-  currency: string;
-}
-
-interface Flight {
-  id: string;
-  flightNumber: string;
-  airline: Airline;
-  origin: LocationInfo;
-  destination: LocationInfo;
-  departureAt: string;
-  arrivalAt: string;
-  durationMinutes: number;
-  price: PriceInfo;
-  seatsAvailable: number;
-}
 
 export default function SearchFlightsPage () {
   const [citiesList, setCitiesList] = useState<City[]>([])
@@ -48,8 +14,7 @@ export default function SearchFlightsPage () {
 
   useEffect(() => {
     async function loadCities() {
-      const response = await fetch('http://127.0.0.1:8080/api/cities')
-      const cities: City[] = await response.json()
+      const cities = await getCities()
       setCitiesList(cities)
     }
 
@@ -60,22 +25,15 @@ export default function SearchFlightsPage () {
     e.preventDefault()
     const form = e.currentTarget
     const formData = new FormData(form)
-    const params = new URLSearchParams({
+    const params = {
       origin: String(formData.get('search-origin') ?? ''),
       destination: String(formData.get('search-destination') ?? ''),
       date: String(formData.get('search-date') ?? ''),
       passengers: String(formData.get('search-passengers') ?? '1'),
-    })
+    }
 
     try {
-      const response = await fetch(`http://127.0.0.1:8080/api/flights?${params}`)
-
-      if (! response.ok) {
-        setSearchStatus('error')
-        throw new Error('Search failed')
-      }
-
-      const flights: Flight[] = await response.json()
+      const flights = await searchFlightsRequest(params)
       setFlightsList(flights)
       setSearchStatus('success')
     } catch {

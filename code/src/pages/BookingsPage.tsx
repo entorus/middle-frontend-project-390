@@ -2,12 +2,10 @@ import { useState } from 'react'
 import { Badge, Button, Card, Col, Row } from 'react-bootstrap'
 import { ErrorMessage, Field, Form, Formik } from 'formik'
 import * as yup from 'yup'
-import { type BookingData } from './BookingPage'
+import { cancelBooking as cancelBookingRequest, getBookingByCode } from '../api/bookings'
+import { type BookingData, type BookingSearchParams } from '../api/types'
 
-interface BookingSearchValues {
-  code: string;
-  lastName: string;
-}
+type BookingSearchValues = BookingSearchParams
 
 export default function BookingsPage() {
   const [foundBooking, setFoundBooking] = useState<BookingData | null>(null)
@@ -20,15 +18,18 @@ export default function BookingsPage() {
     lastName: yup.string().required('Обязательное поле'),
   })
 
-  const searchBooking = async ({ code, lastName }: BookingSearchValues) => {
-    const response = await fetch(`http://127.0.0.1:8080/api/bookings/${code}?lastName=${lastName}`, {
-      method: 'GET'
-    })
-    
-    const result = await response.json()
-    
+  const searchBooking = async (values: BookingSearchValues) => {
+    const result = await getBookingByCode(values)
+
     setFoundBooking(result)
   }
+
+  const cancelBooking = async (values: BookingSearchValues) => {
+    const result = await cancelBookingRequest(values)
+
+    setFoundBooking(result)
+  }
+
   return (<div>
     <h2 className="h2 mb-4 fw-bold text-black">Моя бронь</h2>
     <Formik<BookingSearchValues>
@@ -95,13 +96,13 @@ export default function BookingsPage() {
     {foundBooking && (
       <Card data-testid="flight-result-item">
         <Card.Body className="p-3">
-          <p><b>{foundBooking.code}</b> <Badge pill bg="success">{foundBooking.status}</Badge></p>
+          <p><b>{foundBooking.code}</b> <Badge pill bg={(foundBooking.status === 'confirmed') ? 'success' : 'danger'}>{foundBooking.status}</Badge></p>
           <p>{foundBooking.flight.airline.name} · {foundBooking.flight.flightNumber}: {foundBooking.flight.origin.name} → {foundBooking.flight.destination.name}</p>
           <p>Пассажиры: {foundBooking.passengers.map((pass) => {
             return `${pass.firstName} ${pass.lastName}${foundBooking.passengers.length > 1 ? ',' : ''}`
           })}</p>
           <p>Итого: {foundBooking.totalPrice.amount} ₽</p>
-          <Button className="w-100" variant='danger'>Отменить бронирование</Button>
+          {(foundBooking.status === 'confirmed') && <Button onClick={() => cancelBooking({ code: foundBooking.code, lastName: foundBooking.passengers[0].lastName })} className="w-100" variant='danger'>Отменить бронирование</Button>}
         </Card.Body>
       </Card>
     )}

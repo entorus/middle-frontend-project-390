@@ -1,4 +1,4 @@
-import { type BookingData } from '../pages/BookingPage'
+import { type BookingData } from '../api/types'
 
 interface BookingSuccessProps {
   bookingData: BookingData;

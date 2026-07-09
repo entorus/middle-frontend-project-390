@@ -3,7 +3,7 @@ import { Alert, Button, Col, Row } from 'react-bootstrap'
 import { ErrorMessage, Field, FieldArray, Form, Formik, type FormikHelpers } from 'formik'
 import * as yup from 'yup'
 import PassengerForm from '../components/PassengerForm'
-import { type Passenger, type Flight } from '../pages/BookingPage'
+import { type Flight, type Passenger } from '../api/types'
 
 export interface BookingFormValues {
   email: string,
