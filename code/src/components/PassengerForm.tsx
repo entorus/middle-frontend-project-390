@@ -1,10 +1,66 @@
-import { Card, CloseButton, Col, Form, Row } from 'react-bootstrap'
+import { Card, CloseButton, Col, Row } from 'react-bootstrap'
+import { ErrorMessage, Field, useField } from 'formik'
+
+type PassengerFieldKey = 'firstName' | 'lastName' | 'dateOfBirth' | 'documentNumber'
+
+interface PassengerFieldConfig {
+  key: PassengerFieldKey
+  label: string
+  type?: string
+}
+
+const passengerFields: PassengerFieldConfig[] = [
+  { key: 'firstName', label: 'Имя' },
+  { key: 'lastName', label: 'Фамилия' },
+  { key: 'dateOfBirth', label: 'Дата рождения', type: 'date' },
+  { key: 'documentNumber', label: 'Документ' },
+]
 
 interface PassengerFormProps {
+  index: number
+  passengerId: string
   onRemove?: () => void
 }
 
-export default function PassengerForm({ onRemove }: PassengerFormProps) {
+interface PassengerFieldProps {
+  fieldKey: PassengerFieldKey
+  index: number
+  label: string
+  passengerId: string
+  type?: string
+}
+
+const getPassengerFieldName = (index: number, fieldKey: PassengerFieldKey): string => `passengers.${index}.${fieldKey}`
+
+const getPassengerFieldId = (passengerId: string, fieldKey: PassengerFieldKey): string => `passenger-${passengerId}-${fieldKey}`
+
+function PassengerField({ fieldKey, index, label, passengerId, type = 'text' }: PassengerFieldProps) {
+  const name = getPassengerFieldName(index, fieldKey)
+  const fieldId = getPassengerFieldId(passengerId, fieldKey)
+  const [, meta] = useField(name)
+  const isInvalid = meta.touched && Boolean(meta.error)
+
+  return (
+    <Col xs={12} md={6} lg={3}>
+      <div>
+        <label className="form-label fw-semibold" htmlFor={fieldId}>{label}</label>
+        <Field
+          id={fieldId}
+          className={`form-control ${isInvalid ? 'is-invalid' : ''}`}
+          name={name}
+          type={type}
+        />
+        <ErrorMessage
+          component="div"
+          name={name}
+          className="invalid-feedback"
+        />
+      </div>
+    </Col>
+  )
+}
+
+export default function PassengerForm({ index, onRemove, passengerId }: PassengerFormProps) {
   return (
     <Card className="position-relative mb-3">
       {onRemove && (
@@ -18,33 +74,16 @@ export default function PassengerForm({ onRemove }: PassengerFormProps) {
 
       <Card.Body className="p-3">
         <Row className="g-3">
-          <Col xs={12} md={6} lg={3}>
-            <Form.Group controlId="passengerFirstName">
-              <Form.Label className="fw-semibold">Имя</Form.Label>
-              <Form.Control type="text" defaultValue="Иван" />
-            </Form.Group>
-          </Col>
-
-          <Col xs={12} md={6} lg={3}>
-            <Form.Group controlId="passengerLastName">
-              <Form.Label className="fw-semibold">Фамилия</Form.Label>
-              <Form.Control type="text" defaultValue="Петров" />
-            </Form.Group>
-          </Col>
-
-          <Col xs={12} md={6} lg={3}>
-            <Form.Group controlId="passengerBirthDate">
-              <Form.Label className="fw-semibold">Дата рождения</Form.Label>
-              <Form.Control type="date" />
-            </Form.Group>
-          </Col>
-
-          <Col xs={12} md={6} lg={3}>
-            <Form.Group controlId="passengerDocument">
-              <Form.Label className="fw-semibold">Документ</Form.Label>
-              <Form.Control type="text" defaultValue="4509 123456" />
-            </Form.Group>
-          </Col>
+          {passengerFields.map((field) => (
+            <PassengerField
+              key={field.key}
+              fieldKey={field.key}
+              index={index}
+              label={field.label}
+              passengerId={passengerId}
+              type={field.type}
+            />
+          ))}
         </Row>
       </Card.Body>
     </Card>

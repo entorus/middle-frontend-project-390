@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Button, Col, Row } from 'react-bootstrap'
-import { ErrorMessage, Formik, Form, Field } from 'formik'
-import * as yup from 'yup'
+
 import { useParams } from 'react-router-dom'
-import PassengerForm from '../components/PassengerForm'
+import { type FormikHelpers } from 'formik'
+import BookingForm, { type BookingFormValues } from '../components/BookingForm'
+import BookingSuccess from '../components/BookingSuccess'
+
 
 interface Airline {
   code: string;
@@ -23,7 +24,12 @@ interface FlightPrice {
   currency: string;
 }
 
-interface Flight {
+interface Contact {
+  email: string;
+  phone: string;
+}
+
+export interface Flight {
   id: string;
   flightNumber: string;
   airline: Airline;
@@ -36,53 +42,57 @@ interface Flight {
   seatsAvailable: number;
 }
 
-interface Passenger {
+export interface Passenger {
   id: string,
-  name: string
+  firstName: string
   lastName: string,
-  birthday: string,
-  document: 'passport'
+  dateOfBirth: string,
+  documentNumber: string
 }
 
-const createPassenger = (id: string): Passenger => ({
-  id,
-  name: '',
-  lastName: '',
-  birthday: '',
-  document: 'passport'
-})
+interface BookingPassenger {
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  documentNumber: string;
+}
 
-const normalizePhoneNumber = (phone: string): string => phone.replace(/[\s().-]/g, '')
+interface BookingErrorResponse {
+  code: string;
+  message: string;
+}
+
+export interface BookingData {
+  code: string;
+  status: 'confirmed' | 'cancelled';
+  flight: Flight;
+  passengers: BookingPassenger[];
+  contact: Contact;
+  totalPrice: FlightPrice;
+  createdAt: string;
+}
+
+interface CreateBookingData {
+  flightId: string;
+  contact: Contact;
+  passengers: BookingPassenger[]
+}
+
+const defaultBookingErrorMessage = 'Не удалось оформить бронирование. Попробуйте ещё раз.'
+
+class BookingApiError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'BookingApiError'
+  }
+}
 
 export default function BookingPage() {
-
-  const phoneRegExp = /^(?:\+7|8|7)[0-9]{10}$/
-  const schema = yup.object().shape({
-    email: yup.string().email().required('Обязательное поле'),
-    phone: yup.string()
-      .transform((value) => normalizePhoneNumber(value ?? ''))
-      .matches(phoneRegExp, {
-        message: 'Некорректный формат номера телефона',
-        excludeEmptyString: true,
-      })
-      .required('Обязательное поле'),
-  })
-
   const { flightId } = useParams()
   const [flightData, setFlightData] = useState<Flight | null>(null)
-  const [passengers, setPassengers] = useState<Passenger[]>(() => [createPassenger(crypto.randomUUID())])
-
-  const addPassenger = () => {
-    setPassengers((currentPassengers) => {
-      const nextPassengerId = crypto.randomUUID()
-
-      return [...currentPassengers, createPassenger(nextPassengerId)]
-    })
-  }
-
-  const removePassenger = (passengerId: string) => {
-    setPassengers((currentPassengers) => currentPassengers.filter(({ id }) => id !== passengerId))
-  }
+  const [bookingData, setBookingData] = useState<BookingData | null>(null)
+  const [bookingError, setBookingError] = useState<string | null>(null)
+  
 
   useEffect(() => {
     async function loadFlightData() {
@@ -94,98 +104,71 @@ export default function BookingPage() {
     loadFlightData()
   }, [flightId])
 
-  if (! flightData) 
-    return
+  if (! flightData || ! flightId) 
+    return null
+
+  const parseBookingError = async (response: Response): Promise<string> => {
+    const errorData: Partial<BookingErrorResponse> = await response.json().catch(() => ({}))
+
+    return errorData.message ?? defaultBookingErrorMessage
+  }
+
+  const bookingRequest = async (data: CreateBookingData): Promise<BookingData> => {
+    const response = await fetch('http://127.0.0.1:4010/api/bookings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    })
+
+    if (! response.ok) {
+      throw new BookingApiError(await parseBookingError(response))
+    }
+
+    const result: BookingData = await response.json()
+    console.log('Успех:', result)
+
+    return result
+  }
+
+  const handleSubmit = async ({ email, phone, passengers }: BookingFormValues, actions: FormikHelpers<BookingFormValues>) => {
+    const bookingPassengers = passengers.map(({ firstName, lastName, dateOfBirth, documentNumber }) => ({
+      firstName,
+      lastName,
+      dateOfBirth,
+      documentNumber
+    }))
+    const data: CreateBookingData = {
+      flightId,
+      contact: {
+        email, 
+        phone
+      },
+      passengers: bookingPassengers
+    }
+
+    try {
+      setBookingError(null)
+      const booking = await bookingRequest(data)
+      setBookingData(booking)
+      actions.resetForm()
+    } catch (error) {
+      setBookingError(error instanceof BookingApiError ? error.message : defaultBookingErrorMessage)
+    } finally {
+      actions.setSubmitting(false)
+    }
+  }
+
+  if (bookingData) {
+    return (<BookingSuccess bookingData={bookingData} />)
+  }
 
   return (
-    <>
-      <h2 className="h2 mb-4 fw-bold text-black">Оформление бронирования</h2>
-      <p className="fs-5 mb-4 text-black">{flightData.airline.name} · {flightData.flightNumber}: {flightData.origin.name} → {flightData.destination.name}</p>
-      <Formik
-        validationSchema={schema}
-        onSubmit={values => {
-          console.log(values)
-        }}
-        initialValues={{
-          email: '',
-          phone: ''
-        }}
-      >
-        {({ touched, errors }) => (
-          <Form>
-            <Row className="g-3 mb-4">
-              <Col xs={12} md={6}>
-                <div>
-                  <label className="form-label fw-semibold" htmlFor="email">Email</label>
-                  <Field 
-                    id="email" 
-                    className={`form-control ${
-                      errors.email && touched.email ? 'is-invalid' : ''
-                    }`}
-                    name="email" 
-                  />
-                  <ErrorMessage
-                    component="div"
-                    name="email"
-                    className="invalid-feedback"
-                  />
-                </div>
-              </Col>
-
-              <Col xs={12} md={6}>
-                <div>
-                  <label className="form-label fw-semibold" htmlFor="phone">Телефон</label>
-                  <Field 
-                    id="phone" 
-                    className={`form-control ${
-                      errors.phone && touched.phone ? 'is-invalid' : ''
-                    }`}
-                    name="phone" 
-                  />
-                  <ErrorMessage
-                    component="div"
-                    name="phone"
-                    className="invalid-feedback"
-                  />
-                </div>
-              </Col>
-            </Row>
-
-            <Row className="align-items-center mb-4">
-              <Col>
-                <hr className="my-0" />
-              </Col>
-              <Col xs="auto" className="small text-secondary">
-                Пассажиры
-              </Col>
-              <Col>
-                <hr className="my-0" />
-              </Col>
-            </Row>
-
-            {passengers.map((passenger, index) => (
-              <PassengerForm
-                key={passenger.id}
-                onRemove={index === 0 ? undefined : () => removePassenger(passenger.id)}
-              />
-            ))}
-
-            <div className="d-grid d-sm-flex gap-3">
-              <Button
-                type="button"
-                variant="light"
-                className="bg-primary-subtle border-0 px-4 fw-semibold text-primary"
-                onClick={addPassenger}
-              >
-                Добавить пассажира
-              </Button>
-              <Button type="submit" variant="primary" className="px-4 fw-semibold">
-                Забронировать
-              </Button>
-            </div>
-          </Form>
-        )}
-      </Formik>
-    </>
+    <BookingForm
+      bookingError={bookingError}
+      flightData={flightData}
+      onBookingSubmit={handleSubmit}
+    />
   )
 }

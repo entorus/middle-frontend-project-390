@@ -1,0 +1,17 @@
+import { type BookingData } from '../pages/BookingPage'
+
+interface BookingSuccessProps {
+  bookingData: BookingData;
+}
+
+export default function BookingSuccess({ bookingData }: BookingSuccessProps) {
+  return (
+    <>
+      <h2 className="h2 mb-4 fw-bold text-black">Бронирование оформлено</h2>
+      <p>Код бронирования: <b>{bookingData.code}</b></p>
+      <p>{bookingData.flight.origin.name} → {bookingData.flight.destination.name}, {bookingData.flight.flightNumber}</p>
+      <p>Пассажиров: {bookingData.passengers.length}</p>
+      <p>Итого: {bookingData.totalPrice.amount} ₽</p>
+    </>
+  )
+}

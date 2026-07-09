@@ -155,7 +155,7 @@ export default function SearchFlightsPage () {
                     className="justify-content-between justify-content-md-end"
                   >
                     <div className="fs-5 fw-bold text-nowrap text-black">
-                      {flight.price.amount} {flight.price.currency}
+                      {flight.price.amount} ₽
                     </div>
                     <Link
                       to={`booking/${flight.id}`}
