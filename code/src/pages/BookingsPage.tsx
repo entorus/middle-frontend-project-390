@@ -8,7 +8,7 @@ import { type BookingData, type BookingSearchParams } from '../api/types'
 type BookingSearchValues = BookingSearchParams
 
 const bookingStatusLabels: Record<BookingData['status'], string> = {
-  confirmed: 'активна',
+  confirmed: 'подтверждена',
   cancelled: 'отменена'
 }
 
