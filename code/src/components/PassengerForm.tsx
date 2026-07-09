@@ -6,14 +6,15 @@ type PassengerFieldKey = 'firstName' | 'lastName' | 'dateOfBirth' | 'documentNum
 interface PassengerFieldConfig {
   key: PassengerFieldKey
   label: string
+  testIdSuffix: string
   type?: string
 }
 
 const passengerFields: PassengerFieldConfig[] = [
-  { key: 'firstName', label: 'Имя' },
-  { key: 'lastName', label: 'Фамилия' },
-  { key: 'dateOfBirth', label: 'Дата рождения', type: 'date' },
-  { key: 'documentNumber', label: 'Документ' },
+  { key: 'firstName', label: 'Имя', testIdSuffix: 'firstName' },
+  { key: 'lastName', label: 'Фамилия', testIdSuffix: 'lastName' },
+  { key: 'dateOfBirth', label: 'Дата рождения', testIdSuffix: 'dob', type: 'date' },
+  { key: 'documentNumber', label: 'Документ', testIdSuffix: 'document' },
 ]
 
 interface PassengerFormProps {
@@ -27,6 +28,7 @@ interface PassengerFieldProps {
   index: number
   label: string
   passengerId: string
+  testIdSuffix: string
   type?: string
 }
 
@@ -34,7 +36,7 @@ const getPassengerFieldName = (index: number, fieldKey: PassengerFieldKey): stri
 
 const getPassengerFieldId = (passengerId: string, fieldKey: PassengerFieldKey): string => `passenger-${passengerId}-${fieldKey}`
 
-function PassengerField({ fieldKey, index, label, passengerId, type = 'text' }: PassengerFieldProps) {
+function PassengerField({ fieldKey, index, label, passengerId, testIdSuffix, type = 'text' }: PassengerFieldProps) {
   const name = getPassengerFieldName(index, fieldKey)
   const fieldId = getPassengerFieldId(passengerId, fieldKey)
   const [, meta] = useField(name)
@@ -46,6 +48,7 @@ function PassengerField({ fieldKey, index, label, passengerId, type = 'text' }: 
         <label className="form-label fw-semibold" htmlFor={fieldId}>{label}</label>
         <Field
           id={fieldId}
+          data-testid={`passenger-${index}-${testIdSuffix}`}
           className={`form-control ${isInvalid ? 'is-invalid' : ''}`}
           name={name}
           type={type}
@@ -81,6 +84,7 @@ export default function PassengerForm({ index, onRemove, passengerId }: Passenge
               index={index}
               label={field.label}
               passengerId={passengerId}
+              testIdSuffix={field.testIdSuffix}
               type={field.type}
             />
           ))}

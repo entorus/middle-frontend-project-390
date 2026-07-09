@@ -63,7 +63,7 @@ export default function BookingForm({ bookingError, flightData, onBookingSubmit 
   return (
     <>
       <h2 className="h2 mb-4 fw-bold text-black">Оформление бронирования</h2>
-      <p className="fs-5 mb-4 text-black">{flightData.airline.name} · {flightData.flightNumber}: {flightData.origin.name} → {flightData.destination.name}</p>
+      <p data-testid="booking-flight" className="fs-5 mb-4 text-black">{flightData.airline.name} · {flightData.flightNumber}: {flightData.origin.name} → {flightData.destination.name}</p>
       {bookingError && (
         <Alert data-testid="booking-error" variant="danger">
           {bookingError}
@@ -75,13 +75,14 @@ export default function BookingForm({ bookingError, flightData, onBookingSubmit 
         initialValues={initialValues}
       >
         {({ touched, errors, values, isSubmitting }) => (
-          <Form>
+          <Form data-testid="booking-form">
             <Row className="g-3 mb-4">
               <Col xs={12} md={6}>
                 <div>
                   <label className="form-label fw-semibold" htmlFor="email">Email</label>
                   <Field 
                     id="email" 
+                    data-testid="contact-email"
                     className={`form-control ${
                       errors.email && touched.email ? 'is-invalid' : ''
                     }`}
@@ -100,6 +101,7 @@ export default function BookingForm({ bookingError, flightData, onBookingSubmit 
                   <label className="form-label fw-semibold" htmlFor="phone">Телефон</label>
                   <Field 
                     id="phone" 
+                    data-testid="contact-phone"
                     className={`form-control ${
                       errors.phone && touched.phone ? 'is-invalid' : ''
                     }`}
@@ -141,6 +143,7 @@ export default function BookingForm({ bookingError, flightData, onBookingSubmit 
                   <div className="d-grid d-sm-flex gap-3">
                     <Button
                       type="button"
+                      data-testid="add-passenger"
                       variant="light"
                       className="bg-primary-subtle border-0 px-4 fw-semibold text-primary"
                       onClick={() => push(createPassenger())}
@@ -149,6 +152,7 @@ export default function BookingForm({ bookingError, flightData, onBookingSubmit 
                     </Button>
                     <Button
                       type="submit"
+                      data-testid="booking-submit"
                       variant="primary"
                       className="px-4 fw-semibold"
                       disabled={isSubmitting}

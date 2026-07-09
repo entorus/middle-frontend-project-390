@@ -92,17 +92,47 @@ export default function BookingPage() {
   const [flightData, setFlightData] = useState<Flight | null>(null)
   const [bookingData, setBookingData] = useState<BookingData | null>(null)
   const [bookingError, setBookingError] = useState<string | null>(null)
+  const [flightNotFound, setFlightNotFound] = useState(false)
   
 
   useEffect(() => {
     async function loadFlightData() {
-      const response = await fetch(`http://127.0.0.1:4010/api/flights/${flightId}`)
-      const flight: Flight = await response.json()
-      setFlightData(flight)
+      if (! flightId) {
+        setFlightNotFound(true)
+        return
+      }
+
+      try {
+        setFlightNotFound(false)
+        const response = await fetch(`http://127.0.0.1:4010/api/flights/${flightId}`)
+
+        if (! response.ok) {
+          setFlightNotFound(true)
+          return
+        }
+
+        const flight: Flight = await response.json()
+        if (flight.id !== flightId) {
+          setFlightNotFound(true)
+          return
+        }
+
+        setFlightData(flight)
+      } catch {
+        setFlightNotFound(true)
+      }
     }
 
     loadFlightData()
   }, [flightId])
+
+  if (flightNotFound) {
+    return (
+      <div data-testid="flight-not-found">
+        Рейс не найден
+      </div>
+    )
+  }
 
   if (! flightData || ! flightId) 
     return null
