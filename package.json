@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "devDependencies": {
+    "@hexlet/frontend-flight-booking-server": "^0.2.0"
+  }
+}
