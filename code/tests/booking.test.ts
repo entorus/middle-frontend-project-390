@@ -48,7 +48,7 @@ test('shows booking form for selected flight', async () => {
   await openBookingPage()
 
   expect(await page.getByTestId('booking-form').isVisible()).toBe(true)
-  expect(await page.getByTestId('booking-flight').textContent()).toContain('SU1234')
+  expect(await page.getByTestId('booking-flight').textContent()).toContain('Москва → Санкт-Петербург')
   expect(await page.getByTestId('contact-email').isVisible()).toBe(true)
   expect(await page.getByTestId('contact-phone').isVisible()).toBe(true)
   expect(await page.getByTestId('passenger-0-firstName').isVisible()).toBe(true)

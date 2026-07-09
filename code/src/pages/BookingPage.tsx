@@ -104,7 +104,7 @@ export default function BookingPage() {
 
       try {
         setFlightNotFound(false)
-        const response = await fetch(`http://127.0.0.1:4010/api/flights/${flightId}`)
+        const response = await fetch(`http://127.0.0.1:8080/api/flights/${flightId}`)
 
         if (! response.ok) {
           setFlightNotFound(true)
@@ -144,7 +144,7 @@ export default function BookingPage() {
   }
 
   const bookingRequest = async (data: CreateBookingData): Promise<BookingData> => {
-    const response = await fetch('http://127.0.0.1:4010/api/bookings', {
+    const response = await fetch('http://127.0.0.1:8080/api/bookings', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

@@ -48,7 +48,7 @@ export default function SearchFlightsPage () {
 
   useEffect(() => {
     async function loadCities() {
-      const response = await fetch('http://127.0.0.1:4010/api/cities')
+      const response = await fetch('http://127.0.0.1:8080/api/cities')
       const cities: City[] = await response.json()
       setCitiesList(cities)
     }
@@ -68,7 +68,7 @@ export default function SearchFlightsPage () {
     })
 
     try {
-      const response = await fetch(`http://127.0.0.1:4010/api/flights?${params}`)
+      const response = await fetch(`http://127.0.0.1:8080/api/flights?${params}`)
 
       if (! response.ok) {
         setSearchStatus('error')
@@ -114,7 +114,7 @@ export default function SearchFlightsPage () {
           <Col xs={12} md={6} lg>
             <Form.Group controlId="dateInput">
               <Form.Label className="fw-semibold">Дата</Form.Label>
-              <Form.Control name="search-date" data-testid="search-date" type="date" defaultValue="2026-06-26" />
+              <Form.Control name="search-date" data-testid="search-date" type="date" defaultValue="2026-07-10" />
             </Form.Group>
           </Col>
 
