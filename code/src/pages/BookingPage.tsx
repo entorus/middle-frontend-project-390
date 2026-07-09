@@ -157,7 +157,6 @@ export default function BookingPage() {
     }
 
     const result: BookingData = await response.json()
-    console.log('Успех:', result)
 
     return result
   }
