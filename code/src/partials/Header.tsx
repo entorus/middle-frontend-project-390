@@ -9,7 +9,7 @@ export default function Header() {
         <Nav.Link href="/" className="p-0">
           Поиск рейсов
         </Nav.Link>
-        <Nav.Link href="/my-bookings" className="p-0">
+        <Nav.Link href="/my-bookings" className="p-0" data-testid="nav-lookup">
           Мои брони
         </Nav.Link>
       </Nav>

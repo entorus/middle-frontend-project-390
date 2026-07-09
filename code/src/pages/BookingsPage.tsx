@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Badge, Button, Card, Col, Row } from 'react-bootstrap'
+import { Alert, Badge, Button, Card, Col, Row } from 'react-bootstrap'
 import { ErrorMessage, Field, Form, Formik } from 'formik'
 import * as yup from 'yup'
 import { cancelBooking as cancelBookingRequest, getBookingByCode } from '../api/bookings'
@@ -7,27 +7,66 @@ import { type BookingData, type BookingSearchParams } from '../api/types'
 
 type BookingSearchValues = BookingSearchParams
 
+const bookingStatusLabels: Record<BookingData['status'], string> = {
+  confirmed: 'активна',
+  cancelled: 'отменена'
+}
+
+const notFoundMessage = 'Бронь не найдена. Проверьте код бронирования и фамилию.'
+const cancelErrorMessage = 'Не удалось отменить бронирование. Попробуйте ещё раз.'
+
+const normalizeBookingSearchValues = ({ code, lastName }: BookingSearchValues): BookingSearchValues => ({
+  code: code.trim(),
+  lastName: lastName.trim()
+})
+
 export default function BookingsPage() {
   const [foundBooking, setFoundBooking] = useState<BookingData | null>(null)
+  const [bookingError, setBookingError] = useState<string | null>(null)
+  const [foundBookingParams, setFoundBookingParams] = useState<BookingSearchValues | null>(null)
+  const [isCancelling, setIsCancelling] = useState(false)
   const initialValues: BookingSearchValues = {
     code: '',
     lastName: ''
   }
   const bookingSearchSchema = yup.object().shape({
-    code: yup.string().required('Обязательное поле'),
-    lastName: yup.string().required('Обязательное поле'),
+    code: yup.string().trim().required('Обязательное поле'),
+    lastName: yup.string().trim().required('Обязательное поле'),
   })
 
   const searchBooking = async (values: BookingSearchValues) => {
-    const result = await getBookingByCode(values)
+    const searchParams = normalizeBookingSearchValues(values)
 
-    setFoundBooking(result)
+    try {
+      setBookingError(null)
+      setFoundBooking(null)
+      setFoundBookingParams(null)
+
+      const result = await getBookingByCode(searchParams)
+
+      setFoundBooking(result)
+      setFoundBookingParams(searchParams)
+    } catch {
+      setBookingError(notFoundMessage)
+    }
   }
 
-  const cancelBooking = async (values: BookingSearchValues) => {
-    const result = await cancelBookingRequest(values)
+  const cancelBooking = async () => {
+    if (! foundBookingParams) {
+      return
+    }
 
-    setFoundBooking(result)
+    try {
+      setBookingError(null)
+      setIsCancelling(true)
+      const result = await cancelBookingRequest(foundBookingParams)
+
+      setFoundBooking(result)
+    } catch {
+      setBookingError(cancelErrorMessage)
+    } finally {
+      setIsCancelling(false)
+    }
   }
 
   return (<div>
@@ -38,7 +77,7 @@ export default function BookingsPage() {
       validationSchema={bookingSearchSchema}
     >
       {({ touched, errors, isSubmitting }) => (
-        <Form data-testid="booking-form">
+        <Form data-testid="booking-lookup-form">
           <Row className="g-3 mb-4 align-items-start">
             <Col xs={12} md={6} lg={3}>
               <div>
@@ -46,6 +85,7 @@ export default function BookingsPage() {
                 <Field 
                   id="code" 
                   name="code" 
+                  data-testid="lookup-code"
                   className={`form-control ${
                     errors['code'] && touched['code'] ? 'is-invalid' : ''
                   }`}
@@ -64,6 +104,7 @@ export default function BookingsPage() {
                 <Field 
                   id="lastName"
                   name="lastName"
+                  data-testid="lookup-lastName"
                   className={`form-control ${
                     errors['lastName'] && touched['lastName'] ? 'is-invalid' : ''
                   }`}
@@ -81,7 +122,7 @@ export default function BookingsPage() {
               </div>
               <Button
                 type="submit"
-                data-testid="booking-submit"
+                data-testid="lookup-submit"
                 variant="primary"
                 className="fw-semibold"
                 disabled={isSubmitting}
@@ -93,16 +134,19 @@ export default function BookingsPage() {
         </Form>
       )}
     </Formik>
+    {bookingError && (
+      <Alert data-testid="booking-not-found" variant="danger">
+        {bookingError}
+      </Alert>
+    )}
     {foundBooking && (
-      <Card data-testid="flight-result-item">
+      <Card data-testid="booking-details">
         <Card.Body className="p-3">
-          <p><b>{foundBooking.code}</b> <Badge pill bg={(foundBooking.status === 'confirmed') ? 'success' : 'danger'}>{foundBooking.status}</Badge></p>
+          <p><b data-testid="booking-code">{foundBooking.code}</b> <Badge pill bg={(foundBooking.status === 'confirmed') ? 'success' : 'secondary'} data-testid="booking-status" data-status={foundBooking.status}>{bookingStatusLabels[foundBooking.status]}</Badge></p>
           <p>{foundBooking.flight.airline.name} · {foundBooking.flight.flightNumber}: {foundBooking.flight.origin.name} → {foundBooking.flight.destination.name}</p>
-          <p>Пассажиры: {foundBooking.passengers.map((pass) => {
-            return `${pass.firstName} ${pass.lastName}${foundBooking.passengers.length > 1 ? ',' : ''}`
-          })}</p>
+          <p>Пассажиры: {foundBooking.passengers.map((pass) => `${pass.firstName} ${pass.lastName}`).join(', ')}</p>
           <p>Итого: {foundBooking.totalPrice.amount} ₽</p>
-          {(foundBooking.status === 'confirmed') && <Button onClick={() => cancelBooking({ code: foundBooking.code, lastName: foundBooking.passengers[0].lastName })} className="w-100" variant='danger'>Отменить бронирование</Button>}
+          {(foundBooking.status === 'confirmed') && <Button data-testid="cancel-booking" onClick={cancelBooking} className="w-100" variant='danger' disabled={isCancelling}>Отменить бронирование</Button>}
         </Card.Body>
       </Card>
     )}
