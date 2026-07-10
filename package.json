@@ -1,4 +1,5 @@
 {
+  "name": "@hexlet/code",
   "private": true,
   "engines": {
     "node": ">=22.12.0"
