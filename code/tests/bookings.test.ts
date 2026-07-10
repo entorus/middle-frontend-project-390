@@ -19,7 +19,7 @@ const fillBookingSearchForm = async (
   await page.getByTestId('lookup-submit').click()
 }
 
-test('ссылка навигации открывает страницу поиска брони', async ({ page }) => {
+test('ссылка открывает страницу поиска брони', async ({ page }) => {
   await mockCities(page)
   await mockFlightSearch(page)
   await page.goto('/')
@@ -53,7 +53,7 @@ test('ищет бронь по коду и фамилии', async ({ page }) => 
   await expect(page.getByTestId('booking-status')).toHaveAttribute('data-status', 'confirmed')
 })
 
-test('показывает понятное сообщение для неверных данных', async ({ page }) => {
+test('показывает сообщение для не найденой брони', async ({ page }) => {
   await page.route(bookingApiPattern, async (route) => {
     await fulfillJson(route, { status: 404, body: { message: 'Not found' } })
   })
@@ -65,7 +65,7 @@ test('показывает понятное сообщение для невер
   await expect(page.getByTestId('booking-details')).toHaveCount(0)
 })
 
-test('показывает отдельную ошибку при сбое lookup-сервиса', async ({ page }) => {
+test('показывает отдельную ошибку при сбое поиска', async ({ page }) => {
   await page.route(bookingApiPattern, async (route) => {
     await fulfillJson(route, { status: 500, body: { message: 'Server error' } })
   })
@@ -100,7 +100,7 @@ test('отменяет найденную бронь и обновляет ст�
   await expect(page.getByTestId('cancel-booking')).toHaveCount(0)
 })
 
-test('блокирует lookup-форму во время отмены', async ({ page }) => {
+test('блокирует форму поиска во время отмены', async ({ page }) => {
   let finishCancellation: (() => void) | undefined
 
   await page.route(bookingApiPattern, async (route) => {

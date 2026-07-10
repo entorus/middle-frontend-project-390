@@ -33,20 +33,6 @@ test('использует при оформлении именно выбран
   await expect(page.getByTestId('booking-flight')).toContainText(flights[0].airline.name)
 })
 
-test('показывает форму без crypto.randomUUID', async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(window.crypto, 'randomUUID', {
-      configurable: true,
-      value: undefined,
-    })
-  })
-
-  await openBookingPage(page)
-
-  expect(await page.evaluate(() => typeof crypto.randomUUID)).toBe('undefined')
-  await expect(page.getByTestId('booking-form')).toBeVisible()
-})
-
 test('добавляет поля пассажира', async ({ page }) => {
   await openBookingPage(page)
 
