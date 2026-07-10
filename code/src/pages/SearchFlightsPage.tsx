@@ -165,16 +165,6 @@ export default function SearchFlightsPage () {
       return
     }
 
-    if (searchValues.origin === searchValues.destination) {
-      setSearchState({
-        error: 'Города отправления и назначения должны отличаться.',
-        flights: [],
-        params: null,
-        status: 'error',
-      })
-      return
-    }
-
     await loadFlights(searchValues)
   }
 
