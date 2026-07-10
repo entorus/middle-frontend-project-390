@@ -1,27 +1,86 @@
 import formatDate from '../utils/formatDate'
 import getLocalDateValue from '../utils/getLocalDateValue'
 import { Alert, Button, Card, Col, Form, Row, Stack } from 'react-bootstrap'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getCities, searchFlights as searchFlightsRequest } from '../api/flights'
 import { type City, type Flight } from '../api/types'
 
 type Status = 'idle' | 'submitting' | 'success' | 'error'
+type SearchValues = {
+  origin: string
+  destination: string
+  date: string
+  passengers: string
+}
 
 export default function SearchFlightsPage () {
   const [citiesList, setCitiesList] = useState<City[]>([])
   const [flightsList, setFlightsList] = useState<Flight[]>([])
   const [searchStatus, setSearchStatus] = useState<Status>('idle')
-  const todayDate = getLocalDateValue()
+  const [todayDate] = useState(() => getLocalDateValue())
+  const [searchValues, setSearchValues] = useState<SearchValues>(() => ({
+    origin: '',
+    destination: '',
+    date: todayDate,
+    passengers: '1',
+  }))
+
+  const loadFlights = useCallback(async (params: SearchValues) => {
+    setSearchStatus('submitting')
+
+    try {
+      const flights = await searchFlightsRequest(params)
+      setFlightsList(flights)
+      setSearchStatus('success')
+    } catch {
+      setFlightsList([])
+      setSearchStatus('error')
+    }
+  }, [])
 
   useEffect(() => {
-    async function loadCities() {
-      const cities = await getCities()
-      setCitiesList(cities)
+    let cancelled = false
+
+    async function loadInitialFlights() {
+      try {
+        const cities = await getCities()
+
+        if (cancelled) {
+          return
+        }
+
+        const origin = cities[0]?.code ?? ''
+        const destination = cities.find((city) => city.code !== origin)?.code ?? ''
+        const initialSearchValues = {
+          origin,
+          destination,
+          date: todayDate,
+          passengers: '1',
+        }
+
+        setCitiesList(cities)
+        setSearchValues(initialSearchValues)
+
+        if (!origin || !destination) {
+          setSearchStatus('success')
+          return
+        }
+
+        await loadFlights(initialSearchValues)
+      } catch {
+        if (!cancelled) {
+          setSearchStatus('error')
+        }
+      }
     }
 
-    loadCities()
-  }, [])
+    loadInitialFlights()
+
+    return () => {
+      cancelled = true
+    }
+  }, [loadFlights, todayDate])
 
   const searchFlights = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -32,21 +91,7 @@ export default function SearchFlightsPage () {
       return
     }
 
-    const formData = new FormData(form)
-    const params = {
-      origin: String(formData.get('search-origin') ?? ''),
-      destination: String(formData.get('search-destination') ?? ''),
-      date: String(formData.get('search-date') ?? ''),
-      passengers: String(formData.get('search-passengers') ?? '1'),
-    }
-
-    try {
-      const flights = await searchFlightsRequest(params)
-      setFlightsList(flights)
-      setSearchStatus('success')
-    } catch {
-      setSearchStatus('error')
-    }
+    await loadFlights(searchValues)
   }
 
   return (
@@ -60,7 +105,12 @@ export default function SearchFlightsPage () {
           <Col xs={12} md={6} lg>
             <Form.Group controlId="fromInput">
               <Form.Label className="fw-semibold">Откуда</Form.Label>
-              <Form.Select data-testid="search-origin" name='search-origin'>
+              <Form.Select
+                data-testid="search-origin"
+                name="search-origin"
+                value={searchValues.origin}
+                onChange={(event) => setSearchValues((values) => ({ ...values, origin: event.target.value }))}
+              >
                 <option value="">Откуда</option>
                 {citiesList.map(city => (<option key={city.code} value={city.code}>{city.name}</option>))}
               </Form.Select>
@@ -70,7 +120,12 @@ export default function SearchFlightsPage () {
           <Col xs={12} md={6} lg>
             <Form.Group controlId="toInput">
               <Form.Label className="fw-semibold">Куда</Form.Label>
-              <Form.Select data-testid="search-destination" name='search-destination'>
+              <Form.Select
+                data-testid="search-destination"
+                name="search-destination"
+                value={searchValues.destination}
+                onChange={(event) => setSearchValues((values) => ({ ...values, destination: event.target.value }))}
+              >
                 <option value="">Куда</option>
                 {citiesList.map(city => (<option key={city.code} value={city.code}>{city.name}</option>))}
               </Form.Select>
@@ -84,7 +139,8 @@ export default function SearchFlightsPage () {
                 name="search-date"
                 data-testid="search-date"
                 type="date"
-                defaultValue={todayDate}
+                value={searchValues.date}
+                onChange={(event) => setSearchValues((values) => ({ ...values, date: event.target.value }))}
                 min={todayDate}
                 required
               />
@@ -94,7 +150,14 @@ export default function SearchFlightsPage () {
           <Col xs={12} md={6} lg>
             <Form.Group controlId="passengersInput">
               <Form.Label className="fw-semibold">Пассажиры</Form.Label>
-              <Form.Control name="search-passengers" data-testid="search-passengers" type="number" min="1" defaultValue="1" />
+              <Form.Control
+                name="search-passengers"
+                data-testid="search-passengers"
+                type="number"
+                min="1"
+                value={searchValues.passengers}
+                onChange={(event) => setSearchValues((values) => ({ ...values, passengers: event.target.value }))}
+              />
             </Form.Group>
           </Col>
 

@@ -39,10 +39,12 @@ const flights = [
 
 let browser: Browser
 let page: Page
+let initialSearchUrl: URL | undefined
 
 beforeEach(async () => {
   browser = await chromium.launch()
   page = await browser.newPage()
+  initialSearchUrl = undefined
 
   await page.route('**/api/cities', async (route) => {
     await route.fulfill({
@@ -52,8 +54,18 @@ beforeEach(async () => {
     })
   })
 
+  await page.route('**/api/flights**', async (route) => {
+    initialSearchUrl = new URL(route.request().url())
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(flights),
+    })
+  })
+
   await page.goto(appUrl)
   await page.waitForSelector('[data-testid="search-origin"] option[value="MOW"]', { state: 'attached' })
+  await page.waitForSelector('[data-testid="flight-result-item"]')
 })
 
 afterEach(async () => {
@@ -93,6 +105,16 @@ test('sets today as default and minimum search date', async () => {
 
   expect(await page.getByTestId('search-date').inputValue()).toBe(today)
   expect(await page.getByTestId('search-date').getAttribute('min')).toBe(today)
+})
+
+test('shows flights on initial load with reasonable defaults', async () => {
+  expect(initialSearchUrl?.searchParams.get('origin')).toBe('MOW')
+  expect(initialSearchUrl?.searchParams.get('destination')).toBe('LED')
+  expect(initialSearchUrl?.searchParams.get('date')).toBe(getLocalDateValue())
+  expect(initialSearchUrl?.searchParams.get('passengers')).toBe('1')
+  expect(await page.getByTestId('search-origin').inputValue()).toBe('MOW')
+  expect(await page.getByTestId('search-destination').inputValue()).toBe('LED')
+  expect(await page.getByTestId('flight-result-item').count()).toBeGreaterThan(0)
 })
 
 test('shows found flights', async () => {
