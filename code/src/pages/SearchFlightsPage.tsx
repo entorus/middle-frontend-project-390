@@ -1,4 +1,5 @@
 import formatDate from '../utils/formatDate'
+import getLocalDateValue from '../utils/getLocalDateValue'
 import { Alert, Button, Card, Col, Form, Row, Stack } from 'react-bootstrap'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -11,6 +12,7 @@ export default function SearchFlightsPage () {
   const [citiesList, setCitiesList] = useState<City[]>([])
   const [flightsList, setFlightsList] = useState<Flight[]>([])
   const [searchStatus, setSearchStatus] = useState<Status>('idle')
+  const todayDate = getLocalDateValue()
 
   useEffect(() => {
     async function loadCities() {
@@ -24,6 +26,12 @@ export default function SearchFlightsPage () {
   const searchFlights = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = e.currentTarget
+
+    if (!form.checkValidity()) {
+      form.reportValidity()
+      return
+    }
+
     const formData = new FormData(form)
     const params = {
       origin: String(formData.get('search-origin') ?? ''),
@@ -72,7 +80,14 @@ export default function SearchFlightsPage () {
           <Col xs={12} md={6} lg>
             <Form.Group controlId="dateInput">
               <Form.Label className="fw-semibold">Дата</Form.Label>
-              <Form.Control name="search-date" data-testid="search-date" type="date" defaultValue="2026-07-10" />
+              <Form.Control
+                name="search-date"
+                data-testid="search-date"
+                type="date"
+                defaultValue={todayDate}
+                min={todayDate}
+                required
+              />
             </Form.Group>
           </Col>
 

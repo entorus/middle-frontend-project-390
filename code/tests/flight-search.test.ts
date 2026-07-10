@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'vitest'
 import { chromium, type Browser, type Page } from '@playwright/test'
+import getLocalDateValue from '../src/utils/getLocalDateValue'
 
 const appUrl = process.env.APP_URL || 'http://localhost:5173'
 
@@ -60,11 +61,15 @@ afterEach(async () => {
 })
 
 async function submitSearch() {
+  const searchDate = await page.getByTestId('search-date').inputValue()
+
   await page.getByTestId('search-origin').selectOption('MOW')
   await page.getByTestId('search-destination').selectOption('LED')
-  await page.getByTestId('search-date').fill('2026-07-01')
+  await page.getByTestId('search-date').fill(searchDate)
   await page.getByTestId('search-passengers').fill('2')
   await page.getByTestId('search-submit').click()
+
+  return searchDate
 }
 
 test('loads cities into search selects', async () => {
@@ -83,6 +88,13 @@ test('loads cities into search selects', async () => {
   ])
 })
 
+test('sets today as default and minimum search date', async () => {
+  const today = getLocalDateValue()
+
+  expect(await page.getByTestId('search-date').inputValue()).toBe(today)
+  expect(await page.getByTestId('search-date').getAttribute('min')).toBe(today)
+})
+
 test('shows found flights', async () => {
   let searchUrl: URL | undefined
 
@@ -95,18 +107,45 @@ test('shows found flights', async () => {
     })
   })
 
-  await submitSearch()
+  const searchDate = await submitSearch()
   await page.waitForSelector('[data-testid="flight-result-item"]')
 
   expect(searchUrl?.searchParams.get('origin')).toBe('MOW')
   expect(searchUrl?.searchParams.get('destination')).toBe('LED')
-  expect(searchUrl?.searchParams.get('date')).toBe('2026-07-01')
+  expect(searchUrl?.searchParams.get('date')).toBe(searchDate)
   expect(searchUrl?.searchParams.get('passengers')).toBe('2')
   expect(await page.getByTestId('flight-results').isVisible()).toBe(true)
   expect(await page.getByTestId('flight-result-item').count()).toBe(2)
   expect(await page.getByTestId('book-flight').count()).toBe(2)
   expect(await page.getByTestId('flights-empty').isVisible()).toBe(false)
   expect(await page.getByTestId('flights-error').isVisible()).toBe(false)
+})
+
+test('does not search flights for past dates', async () => {
+  let searchRequested = false
+
+  await page.route('**/api/flights**', async (route) => {
+    searchRequested = true
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([]),
+    })
+  })
+
+  await page.getByTestId('search-origin').selectOption('MOW')
+  await page.getByTestId('search-destination').selectOption('LED')
+  await page.getByTestId('search-date').fill('2000-01-01')
+  await page.getByTestId('search-passengers').fill('2')
+  await page.getByTestId('search-submit').click()
+  await page.waitForTimeout(100)
+
+  const isRangeUnderflow = await page.getByTestId('search-date').evaluate((element) => (
+    (element as HTMLInputElement).validity.rangeUnderflow
+  ))
+
+  expect(isRangeUnderflow).toBe(true)
+  expect(searchRequested).toBe(false)
 })
 
 test('shows empty state when flights are not found', async () => {
