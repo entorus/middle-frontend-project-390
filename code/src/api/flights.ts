@@ -8,8 +8,8 @@ export interface SearchFlightsParams {
   passengers: string;
 }
 
-export const getCities = async (): Promise<City[]> => {
-  const response = await fetch('/api/cities')
+export const getCities = async (signal?: AbortSignal): Promise<City[]> => {
+  const response = await fetch('/api/cities', { signal })
 
   if (! response.ok) {
     return throwApiError(response, 'Не удалось загрузить города.')
@@ -18,14 +18,14 @@ export const getCities = async (): Promise<City[]> => {
   return await response.json() as City[]
 }
 
-export const searchFlights = async (params: SearchFlightsParams): Promise<Flight[]> => {
+export const searchFlights = async (params: SearchFlightsParams, signal?: AbortSignal): Promise<Flight[]> => {
   const searchParams = new URLSearchParams({
     origin: params.origin,
     destination: params.destination,
     date: params.date,
     passengers: params.passengers,
   })
-  const response = await fetch(`/api/flights?${searchParams}`)
+  const response = await fetch(`/api/flights?${searchParams}`, { signal })
 
   if (! response.ok) {
     return throwApiError(response, 'Не удалось загрузить рейсы.')

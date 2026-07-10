@@ -13,13 +13,14 @@ const getBookingPath = ({ code, lastName }: BookingSearchParams) => {
   return `/api/bookings/${encodeURIComponent(code)}?${params}`
 }
 
-export const createBooking = async (data: CreateBookingData): Promise<BookingData> => {
+export const createBooking = async (data: CreateBookingData, signal?: AbortSignal): Promise<BookingData> => {
   const response = await fetch('/api/bookings', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
+    signal,
   })
 
   if (! response.ok) {
@@ -29,9 +30,10 @@ export const createBooking = async (data: CreateBookingData): Promise<BookingDat
   return await response.json() as BookingData
 }
 
-export const getBookingByCode = async (params: BookingSearchParams): Promise<BookingData> => {
+export const getBookingByCode = async (params: BookingSearchParams, signal?: AbortSignal): Promise<BookingData> => {
   const response = await fetch(getBookingPath(params), {
-    method: 'GET'
+    method: 'GET',
+    signal,
   })
 
   if (! response.ok) {
@@ -41,9 +43,10 @@ export const getBookingByCode = async (params: BookingSearchParams): Promise<Boo
   return await response.json() as BookingData
 }
 
-export const cancelBooking = async (params: BookingSearchParams): Promise<BookingData> => {
+export const cancelBooking = async (params: BookingSearchParams, signal?: AbortSignal): Promise<BookingData> => {
   const response = await fetch(getBookingPath(params), {
-    method: 'DELETE'
+    method: 'DELETE',
+    signal,
   })
 
   if (! response.ok) {

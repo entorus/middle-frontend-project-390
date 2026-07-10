@@ -1,64 +1,86 @@
-import { useState } from 'react'
+import { useId, useMemo, useRef } from 'react'
 import { Alert, Button, Col, Row } from 'react-bootstrap'
-import { ErrorMessage, Field, FieldArray, Form, Formik, type FormikHelpers } from 'formik'
+import { FieldArray, Form, Formik, type FormikHelpers } from 'formik'
 import * as yup from 'yup'
 import PassengerForm from '../components/PassengerForm'
-import { type Flight, type Passenger } from '../api/types'
+import ValidatedField from './ValidatedField'
+import { type BookingPassenger, type Flight } from '../api/types'
+import { normalizePhoneNumber } from '../utils/createBookingData'
+
+export interface PassengerFormValues extends BookingPassenger {
+  id: string
+}
 
 export interface BookingFormValues {
   email: string,
   phone: string,
-  passengers: Passenger[]
+  passengers: PassengerFormValues[]
 }
 
 interface BookingFormProps {
   bookingError: string | null,
   flightData: Flight,
+  initialPassengerCount: number,
+  maxPassengers: number,
   onBookingSubmit: (
     values: BookingFormValues,
     actions: FormikHelpers<BookingFormValues>,
   ) => void | Promise<void>
 }
 
-let nextPassengerId = 0
-
-const createPassenger = (): Passenger => ({
-  id: `passenger-${nextPassengerId++}`,
+const createPassenger = (id: string): PassengerFormValues => ({
+  id,
   firstName: '',
   lastName: '',
   dateOfBirth: '',
   documentNumber: ''
 })
 
-export default function BookingForm({ bookingError, flightData, onBookingSubmit }: BookingFormProps) {
+const phoneRegExp = /^(?:\+7|8|7)[0-9]{10}$/
 
-  const [initialValues] = useState<BookingFormValues>(() => ({
+const passengerSchema = yup.object({
+  firstName: yup.string().trim().required('Обязательное поле'),
+  lastName: yup.string().trim().required('Обязательное поле'),
+  dateOfBirth: yup.string().required('Обязательное поле'),
+  documentNumber: yup.string().trim().required('Обязательное поле'),
+})
+
+const bookingSchema = yup.object().shape({
+  email: yup.string().trim().email('Некорректный формат email').required('Обязательное поле'),
+  phone: yup.string()
+    .transform((value) => normalizePhoneNumber(value ?? ''))
+    .matches(phoneRegExp, {
+      message: 'Некорректный формат номера телефона',
+      excludeEmptyString: true,
+    })
+    .required('Обязательное поле'),
+  passengers: yup.array().of(passengerSchema).min(1, 'Добавьте пассажира').required()
+})
+
+export default function BookingForm({
+  bookingError,
+  flightData,
+  initialPassengerCount,
+  maxPassengers,
+  onBookingSubmit,
+}: BookingFormProps) {
+  const formId = useId()
+  const nextPassengerIdRef = useRef(initialPassengerCount)
+  const initialValues = useMemo<BookingFormValues>(() => ({
     email: '',
     phone: '',
-    passengers: [createPassenger()]
-  }))
+    passengers: Array.from(
+      { length: initialPassengerCount },
+      (_, index) => createPassenger(`${formId}-${index}`),
+    ),
+  }), [formId, initialPassengerCount])
 
-  const normalizePhoneNumber = (phone: string): string => phone.replace(/[\s().-]/g, '')
-  const phoneRegExp = /^(?:\+7|8|7)[0-9]{10}$/
+  const createNextPassenger = () => {
+    const passenger = createPassenger(`${formId}-${nextPassengerIdRef.current}`)
+    nextPassengerIdRef.current += 1
 
-  const passengerSchema = yup.object({
-    firstName: yup.string().trim().required('Обязательное поле'),
-    lastName: yup.string().trim().required('Обязательное поле'),
-    dateOfBirth: yup.string().required('Обязательное поле'),
-    documentNumber: yup.string().trim().required('Обязательное поле'),
-  })
-
-  const bookingSchema = yup.object().shape({
-    email: yup.string().email().required('Обязательное поле'),
-    phone: yup.string()
-      .transform((value) => normalizePhoneNumber(value ?? ''))
-      .matches(phoneRegExp, {
-        message: 'Некорректный формат номера телефона',
-        excludeEmptyString: true,
-      })
-      .required('Обязательное поле'),
-    passengers: yup.array().of(passengerSchema).min(1, 'Добавьте пассажира').required()
-  })
+    return passenger
+  }
 
   
 
@@ -76,43 +98,28 @@ export default function BookingForm({ bookingError, flightData, onBookingSubmit 
         onSubmit={onBookingSubmit}
         initialValues={initialValues}
       >
-        {({ touched, errors, values, isSubmitting }) => (
+        {({ values, isSubmitting }) => (
           <Form data-testid="booking-form">
             <Row className="g-3 mb-4">
               <Col xs={12} md={6}>
                 <div>
-                  <label className="form-label fw-semibold" htmlFor="email">Email</label>
-                  <Field 
-                    id="email" 
-                    data-testid="contact-email"
-                    className={`form-control ${
-                      errors.email && touched.email ? 'is-invalid' : ''
-                    }`}
-                    name="email" 
-                  />
-                  <ErrorMessage
-                    component="div"
+                  <ValidatedField
+                    id="email"
+                    label="Email"
                     name="email"
-                    className="invalid-feedback"
+                    testId="contact-email"
                   />
                 </div>
               </Col>
 
               <Col xs={12} md={6}>
                 <div>
-                  <label className="form-label fw-semibold" htmlFor="phone">Телефон</label>
-                  <Field 
-                    id="phone" 
-                    data-testid="contact-phone"
-                    className={`form-control ${
-                      errors.phone && touched.phone ? 'is-invalid' : ''
-                    }`}
-                    name="phone" 
-                  />
-                  <ErrorMessage
-                    component="div"
+                  <ValidatedField
+                    id="phone"
+                    label="Телефон"
                     name="phone"
-                    className="invalid-feedback"
+                    testId="contact-phone"
+                    type="tel"
                   />
                 </div>
               </Col>
@@ -148,7 +155,12 @@ export default function BookingForm({ bookingError, flightData, onBookingSubmit 
                       data-testid="add-passenger"
                       variant="light"
                       className="bg-primary-subtle border-0 px-4 fw-semibold text-primary"
-                      onClick={() => push(createPassenger())}
+                      onClick={() => {
+                        if (values.passengers.length < maxPassengers) {
+                          push(createNextPassenger())
+                        }
+                      }}
+                      disabled={values.passengers.length >= maxPassengers}
                     >
                       Добавить пассажира
                     </Button>

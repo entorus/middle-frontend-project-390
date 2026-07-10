@@ -58,6 +58,25 @@ test('добавляет поля пассажира', async ({ page }) => {
   await expect(page.getByTestId('passenger-1-document')).toBeVisible()
 })
 
+test('переносит число пассажиров из поиска и учитывает доступные места', async ({ page }) => {
+  const flightWithTwoSeats = { ...flights[0], seatsAvailable: 2 }
+
+  await mockCities(page)
+  await mockFlightSearch(page, [{ body: [flightWithTwoSeats] }])
+  await mockFlightById(page, flightWithTwoSeats.id, { body: flightWithTwoSeats })
+  await page.goto('/')
+  await expect(page.getByTestId('flight-result-item')).toHaveCount(1)
+
+  await page.getByTestId('search-passengers').fill('2')
+  await page.getByTestId('search-submit').click()
+  await expect(page.getByTestId('search-submit')).toBeEnabled()
+  await page.getByTestId('book-flight').click()
+
+  await expect(page.getByTestId('passenger-0-firstName')).toBeVisible()
+  await expect(page.getByTestId('passenger-1-firstName')).toBeVisible()
+  await expect(page.getByTestId('add-passenger')).toBeDisabled()
+})
+
 test('не отправляет пустую форму', async ({ page }) => {
   let bookingRequestsCount = 0
 
@@ -82,6 +101,11 @@ test('создаёт бронь с корректными данными и по
   })
   await openBookingPage(page)
   await fillBookingForm(page)
+  await page.getByTestId('contact-email').fill(' ivan@example.com ')
+  await page.getByTestId('contact-phone').fill('+7 (999) 123-45-67')
+  await page.getByTestId('passenger-0-firstName').fill(' Иван ')
+  await page.getByTestId('passenger-0-lastName').fill(' Петров ')
+  await page.getByTestId('passenger-0-document').fill(' 4509 123456 ')
 
   await page.getByTestId('booking-submit').click()
 

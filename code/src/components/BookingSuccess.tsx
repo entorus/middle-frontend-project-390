@@ -1,4 +1,5 @@
 import { type BookingData } from '../api/types'
+import formatPrice from '../utils/formatPrice'
 
 interface BookingSuccessProps {
   bookingData: BookingData;
@@ -11,7 +12,7 @@ export default function BookingSuccess({ bookingData }: BookingSuccessProps) {
       <p>Код бронирования: <b data-testid="booking-code">{bookingData.code}</b></p>
       <p>{bookingData.flight.origin.name} → {bookingData.flight.destination.name}, {bookingData.flight.flightNumber}</p>
       <p>Пассажиров: {bookingData.passengers.length}</p>
-      <p>Итого: {bookingData.totalPrice.amount} ₽</p>
+      <p>Итого: {formatPrice(bookingData.totalPrice)}</p>
     </div>
   )
 }

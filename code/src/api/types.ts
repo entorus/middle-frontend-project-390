@@ -33,14 +33,6 @@ export interface Flight {
   seatsAvailable: number;
 }
 
-export interface Passenger {
-  id: string,
-  firstName: string
-  lastName: string,
-  dateOfBirth: string,
-  documentNumber: string
-}
-
 export interface Contact {
   email: string;
   phone: string;

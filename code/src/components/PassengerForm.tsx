@@ -1,5 +1,5 @@
 import { Card, CloseButton, Col, Row } from 'react-bootstrap'
-import { ErrorMessage, Field, useField } from 'formik'
+import ValidatedField from './ValidatedField'
 
 type PassengerFieldKey = 'firstName' | 'lastName' | 'dateOfBirth' | 'documentNumber'
 
@@ -39,26 +39,16 @@ const getPassengerFieldId = (passengerId: string, fieldKey: PassengerFieldKey): 
 function PassengerField({ fieldKey, index, label, passengerId, testIdSuffix, type = 'text' }: PassengerFieldProps) {
   const name = getPassengerFieldName(index, fieldKey)
   const fieldId = getPassengerFieldId(passengerId, fieldKey)
-  const [, meta] = useField(name)
-  const isInvalid = meta.touched && Boolean(meta.error)
 
   return (
     <Col xs={12} md={6} lg={3}>
-      <div>
-        <label className="form-label fw-semibold" htmlFor={fieldId}>{label}</label>
-        <Field
-          id={fieldId}
-          data-testid={`passenger-${index}-${testIdSuffix}`}
-          className={`form-control ${isInvalid ? 'is-invalid' : ''}`}
-          name={name}
-          type={type}
-        />
-        <ErrorMessage
-          component="div"
-          name={name}
-          className="invalid-feedback"
-        />
-      </div>
+      <ValidatedField
+        id={fieldId}
+        label={label}
+        name={name}
+        testId={`passenger-${index}-${testIdSuffix}`}
+        type={type}
+      />
     </Col>
   )
 }

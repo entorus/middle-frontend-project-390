@@ -1,76 +1,115 @@
 import formatDate from '../utils/formatDate'
+import formatPrice from '../utils/formatPrice'
 import getLocalDateValue from '../utils/getLocalDateValue'
 import { Alert, Button, Card, Col, Form, Row, Spinner, Stack } from 'react-bootstrap'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getCities, searchFlights as searchFlightsRequest, type SearchFlightsParams } from '../api/flights'
 import { type City, type Flight } from '../api/types'
+import { isAbortError } from '../api/errors'
+import { MAX_PASSENGERS, MIN_PASSENGERS } from '../constants/booking'
 
-type Status = 'idle' | 'submitting' | 'success' | 'error'
+type Status = 'submitting' | 'success' | 'error'
+type CitiesStatus = 'loading' | 'ready' | 'error'
 type SearchValues = SearchFlightsParams
+type SearchState = {
+  error: string | null
+  flights: Flight[]
+  params: SearchValues | null
+  status: Status
+}
 
 export default function SearchFlightsPage () {
   const [citiesList, setCitiesList] = useState<City[]>([])
-  const [flightsList, setFlightsList] = useState<Flight[]>([])
-  const [searchStatus, setSearchStatus] = useState<Status>('idle')
-  const [searchError, setSearchError] = useState<string | null>(null)
-  const [todayDate] = useState(() => getLocalDateValue())
+  const [citiesStatus, setCitiesStatus] = useState<CitiesStatus>('loading')
+  const [searchState, setSearchState] = useState<SearchState>({
+    error: null,
+    flights: [],
+    params: null,
+    status: 'submitting',
+  })
+  const [todayDate, setTodayDate] = useState(() => getLocalDateValue())
   const [searchValues, setSearchValues] = useState<SearchValues>(() => ({
     origin: '',
     destination: '',
     date: todayDate,
-    passengers: '1',
+    passengers: String(MIN_PASSENGERS),
   }))
+  const flightsRequestRef = useRef<AbortController | null>(null)
 
   const loadFlights = useCallback(async (params: SearchValues) => {
-    setSearchStatus('submitting')
-    setSearchError(null)
-    setFlightsList([])
+    flightsRequestRef.current?.abort()
+    const controller = new AbortController()
+    flightsRequestRef.current = controller
+    setSearchState({ error: null, flights: [], params, status: 'submitting' })
 
     try {
-      const flights = await searchFlightsRequest(params)
-      setFlightsList(flights)
-      setSearchStatus('success')
-    } catch {
-      setFlightsList([])
-      setSearchError('Не удалось загрузить рейсы. Попробуйте ещё раз.')
-      setSearchStatus('error')
+      const flights = await searchFlightsRequest(params, controller.signal)
+
+      if (flightsRequestRef.current !== controller || controller.signal.aborted) {
+        return
+      }
+
+      setSearchState({ error: null, flights, params, status: 'success' })
+    } catch (error) {
+      if (flightsRequestRef.current !== controller || isAbortError(error)) {
+        return
+      }
+
+      setSearchState({
+        error: 'Не удалось загрузить рейсы. Попробуйте ещё раз.',
+        flights: [],
+        params,
+        status: 'error',
+      })
+    } finally {
+      if (flightsRequestRef.current === controller) {
+        flightsRequestRef.current = null
+      }
     }
   }, [])
 
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
 
     async function loadInitialFlights() {
       try {
-        const cities = await getCities()
+        const cities = await getCities(controller.signal)
 
-        if (cancelled) {
+        if (controller.signal.aborted) {
           return
         }
 
         const origin = cities[0]?.code ?? ''
         const destination = cities.find((city) => city.code !== origin)?.code ?? ''
+        const currentDate = getLocalDateValue()
         const initialSearchValues = {
           origin,
           destination,
-          date: todayDate,
-          passengers: '1',
+          date: currentDate,
+          passengers: String(MIN_PASSENGERS),
         }
 
+        setTodayDate(currentDate)
         setCitiesList(cities)
+        setCitiesStatus('ready')
         setSearchValues(initialSearchValues)
 
         if (!origin || !destination) {
-          setSearchStatus('success')
+          setSearchState({ error: null, flights: [], params: initialSearchValues, status: 'success' })
           return
         }
 
         await loadFlights(initialSearchValues)
-      } catch {
-        if (!cancelled) {
-          setSearchError('Не удалось загрузить города. Попробуйте обновить страницу.')
-          setSearchStatus('error')
+      } catch (error) {
+        if (!controller.signal.aborted && !isAbortError(error)) {
+          setCitiesStatus('error')
+          setSearchState({
+            error: 'Не удалось загрузить города. Попробуйте обновить страницу.',
+            flights: [],
+            params: null,
+            status: 'error',
+          })
         }
       }
     }
@@ -78,13 +117,48 @@ export default function SearchFlightsPage () {
     loadInitialFlights()
 
     return () => {
-      cancelled = true
+      controller.abort()
+      flightsRequestRef.current?.abort()
+      flightsRequestRef.current = null
     }
-  }, [loadFlights, todayDate])
+  }, [loadFlights])
+
+  useEffect(() => {
+    const updateCurrentDate = () => {
+      const currentDate = getLocalDateValue()
+      setTodayDate(currentDate)
+      setSearchValues((values) => (
+        values.date < currentDate ? { ...values, date: currentDate } : values
+      ))
+    }
+    const now = new Date()
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+    const timer = window.setTimeout(updateCurrentDate, tomorrow.getTime() - now.getTime() + 1_000)
+
+    window.addEventListener('focus', updateCurrentDate)
+
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('focus', updateCurrentDate)
+    }
+  }, [todayDate])
 
   const searchFlights = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = e.currentTarget
+    const currentDate = getLocalDateValue()
+
+    if (searchValues.date < currentDate) {
+      setTodayDate(currentDate)
+      setSearchValues((values) => ({ ...values, date: currentDate }))
+      setSearchState({
+        error: 'Нельзя искать билеты на прошедшую дату.',
+        flights: [],
+        params: null,
+        status: 'error',
+      })
+      return
+    }
 
     if (!form.checkValidity()) {
       form.reportValidity()
@@ -92,14 +166,20 @@ export default function SearchFlightsPage () {
     }
 
     if (searchValues.origin === searchValues.destination) {
-      setFlightsList([])
-      setSearchError('Города отправления и назначения должны отличаться.')
-      setSearchStatus('error')
+      setSearchState({
+        error: 'Города отправления и назначения должны отличаться.',
+        flights: [],
+        params: null,
+        status: 'error',
+      })
       return
     }
 
     await loadFlights(searchValues)
   }
+
+  const isFormDisabled = citiesStatus !== 'ready' || searchState.status === 'submitting'
+  const resultPassengerCount = Number(searchState.params?.passengers ?? MIN_PASSENGERS)
 
   return (
     <>
@@ -107,6 +187,7 @@ export default function SearchFlightsPage () {
         onSubmit={searchFlights}
         data-testid="flight-search-form" 
         className="mb-3"
+        aria-busy={isFormDisabled}
       >
         <Row className="g-3 align-items-end">
           <Col xs={12} md={6} lg>
@@ -117,6 +198,7 @@ export default function SearchFlightsPage () {
                 name="search-origin"
                 value={searchValues.origin}
                 onChange={(event) => setSearchValues((values) => ({ ...values, origin: event.target.value }))}
+                disabled={isFormDisabled}
                 required
               >
                 <option value="">Откуда</option>
@@ -133,6 +215,7 @@ export default function SearchFlightsPage () {
                 name="search-destination"
                 value={searchValues.destination}
                 onChange={(event) => setSearchValues((values) => ({ ...values, destination: event.target.value }))}
+                disabled={isFormDisabled}
                 required
               >
                 <option value="">Куда</option>
@@ -151,6 +234,7 @@ export default function SearchFlightsPage () {
                 value={searchValues.date}
                 onChange={(event) => setSearchValues((values) => ({ ...values, date: event.target.value }))}
                 min={todayDate}
+                disabled={isFormDisabled}
                 required
               />
             </Form.Group>
@@ -163,31 +247,32 @@ export default function SearchFlightsPage () {
                 name="search-passengers"
                 data-testid="search-passengers"
                 type="number"
-                min="1"
-                max="9"
+                min={MIN_PASSENGERS}
+                max={MAX_PASSENGERS}
                 value={searchValues.passengers}
                 onChange={(event) => setSearchValues((values) => ({ ...values, passengers: event.target.value }))}
+                disabled={isFormDisabled}
                 required
               />
             </Form.Group>
           </Col>
 
           <Col xs={12} lg>
-            <Button data-testid="search-submit" type="submit" variant="primary" className="w-100 fw-semibold" disabled={searchStatus === 'submitting'}>
+            <Button data-testid="search-submit" type="submit" variant="primary" className="w-100 fw-semibold" disabled={isFormDisabled}>
               Найти
             </Button>
           </Col>
         </Row>
       </Form>
 
-      <Stack data-testid="flight-results" gap={3} aria-busy={searchStatus === 'submitting'}>
-        {searchStatus === 'submitting' && (
+      <Stack data-testid="flight-results" gap={3} aria-busy={searchState.status === 'submitting'}>
+        {searchState.status === 'submitting' && (
           <div className="py-4 text-center" data-testid="flights-loading" role="status">
             <Spinner animation="border" className="me-2" />
             Ищем рейсы
           </div>
         )}
-        {flightsList.map((flight) => (
+        {searchState.flights.map((flight) => (
           <Card data-testid="flight-result-item" key={flight.id}>
             <Card.Body className="p-3">
               <Row className="g-3 align-items-center">
@@ -208,10 +293,11 @@ export default function SearchFlightsPage () {
                     className="justify-content-between justify-content-md-end"
                   >
                     <div className="fs-5 fw-bold text-nowrap text-black">
-                      {flight.price.amount} ₽
+                      {formatPrice(flight.price)}
                     </div>
                     <Link
                       to={`/booking/${flight.id}`}
+                      state={{ passengerCount: resultPassengerCount }}
                       data-testid="book-flight"
                       className="bg-primary-subtle border-0 px-4 fw-semibold text-primary btn btn-light"
                     >
@@ -223,14 +309,14 @@ export default function SearchFlightsPage () {
             </Card.Body>
           </Card>
         ))}
-        {(searchStatus === 'success' && flightsList.length === 0) && (
+        {(searchState.status === 'success' && searchState.flights.length === 0) && (
           <Alert data-testid="flights-empty" variant="warning">
             Рейсов не найдено
           </Alert>
         )}
-        {searchStatus === 'error' && (
+        {searchState.status === 'error' && (
           <Alert data-testid="flights-error" variant="danger">
-            {searchError}
+            {searchState.error}
           </Alert>
         )}
       </Stack>

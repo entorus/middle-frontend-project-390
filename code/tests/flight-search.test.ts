@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
-import { mockCities, mockFlightSearch, type ApiResponse } from './fixtures/api'
-import { flights } from './fixtures/data'
+import { fulfillJson, mockCities, mockFlightSearch, type ApiResponse } from './fixtures/api'
+import { cities, flights } from './fixtures/data'
 
 const today = '2026-07-10'
 
@@ -48,6 +48,39 @@ test('устанавливает сегодняшнюю дату и запрещ
 
   await expect(page.getByTestId('search-date')).toHaveValue(today)
   await expect(page.getByTestId('search-date')).toHaveAttribute('min', today)
+})
+
+test('обновляет сегодняшнюю дату после смены дня', async ({ page }) => {
+  await openSearchPage(page)
+  const nextDay = '2026-07-11'
+
+  await page.clock.setFixedTime(new Date(`${nextDay}T12:00:00Z`))
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+
+  await expect(page.getByTestId('search-date')).toHaveAttribute('min', nextDay)
+  await expect(page.getByTestId('search-date')).toHaveValue(nextDay)
+})
+
+test('блокирует форму, пока загружаются города', async ({ page }) => {
+  let finishCitiesRequest: (() => void) | undefined
+
+  await page.clock.setFixedTime(new Date(`${today}T12:00:00Z`))
+  await page.route('**/api/cities', async (route) => {
+    await new Promise<void>((resolve) => {
+      finishCitiesRequest = resolve
+    })
+    await fulfillJson(route, { body: cities })
+  })
+  await mockFlightSearch(page)
+  await page.goto('/')
+
+  await expect(page.getByTestId('search-date')).toBeDisabled()
+  await expect(page.getByTestId('search-passengers')).toBeDisabled()
+  expect(finishCitiesRequest).toBeDefined()
+  finishCitiesRequest?.()
+
+  await expect(page.getByTestId('search-date')).toBeEnabled()
+  await expect(page.getByTestId('search-passengers')).toBeEnabled()
 })
 
 test('сразу показывает рейсы с разумными значениями по умолчанию', async ({ page }) => {
