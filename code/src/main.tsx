@@ -2,22 +2,29 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import * as Sentry from '@sentry/react'
 import App from './App.tsx'
-import 'bootstrap'
 import 'bootstrap/dist/css/bootstrap.min.css'
 
-Sentry.init({
-  dsn: import.meta.env.VITE_SENTRY_DSN,
+const sentryDsn = import.meta.env.VITE_SENTRY_DSN
 
-  // Alternatively, use `process.env.npm_package_version` for a dynamic release version
-  // if your build tool supports it.
-  release: 'booking-hexlet',
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    release: import.meta.env.VITE_SENTRY_RELEASE,
+    tracesSampleRate: 0,
+  })
+}
 
-  integrations: [],
-  tracesSampleRate: 0,
-})
+const appFallback = (
+  <main className="container py-5" role="alert">
+    <h1>Не удалось открыть приложение</h1>
+    <p><a href="/">Попробовать снова</a></p>
+  </main>
+)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <Sentry.ErrorBoundary fallback={appFallback}>
+      <App />
+    </Sentry.ErrorBoundary>
   </StrictMode>,
 )

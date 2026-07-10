@@ -94,6 +94,24 @@ test('не отправляет поиск для прошедшей даты', 
   expect(requests).toHaveLength(1)
 })
 
+test('не отправляет поиск для одинаковых городов', async ({ page }) => {
+  const requests = await openSearchPage(page)
+
+  await page.getByTestId('search-origin').selectOption('MOW')
+  await page.getByTestId('search-destination').selectOption('MOW')
+  await page.getByTestId('search-submit').click()
+
+  await expect(page.getByTestId('flights-error')).toContainText('должны отличаться')
+  expect(requests).toHaveLength(1)
+})
+
+test('ограничивает количество пассажиров контрактом API', async ({ page }) => {
+  await openSearchPage(page)
+
+  await expect(page.getByTestId('search-passengers')).toHaveAttribute('max', '9')
+  await expect(page.getByTestId('search-passengers')).toHaveAttribute('required', '')
+})
+
 test('показывает пустое состояние, когда рейсов нет', async ({ page }) => {
   await openSearchPage(page, [{ body: flights }, { body: [] }])
 

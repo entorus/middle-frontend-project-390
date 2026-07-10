@@ -126,3 +126,15 @@ test('показывает сообщение для неизвестного р
 
   await expect(page.getByTestId('flight-not-found')).toBeVisible()
 })
+
+test('показывает ошибку загрузки рейса отдельно от 404', async ({ page }) => {
+  await mockFlightById(page, flights[0].id, {
+    status: 500,
+    body: { message: 'Server error' },
+  })
+
+  await page.goto(`/booking/${flights[0].id}`)
+
+  await expect(page.getByTestId('flight-load-error')).toBeVisible()
+  await expect(page.getByTestId('flight-not-found')).toHaveCount(0)
+})

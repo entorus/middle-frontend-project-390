@@ -1,23 +1,19 @@
 import formatDate from '../utils/formatDate'
 import getLocalDateValue from '../utils/getLocalDateValue'
-import { Alert, Button, Card, Col, Form, Row, Stack } from 'react-bootstrap'
+import { Alert, Button, Card, Col, Form, Row, Spinner, Stack } from 'react-bootstrap'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getCities, searchFlights as searchFlightsRequest } from '../api/flights'
+import { getCities, searchFlights as searchFlightsRequest, type SearchFlightsParams } from '../api/flights'
 import { type City, type Flight } from '../api/types'
 
 type Status = 'idle' | 'submitting' | 'success' | 'error'
-type SearchValues = {
-  origin: string
-  destination: string
-  date: string
-  passengers: string
-}
+type SearchValues = SearchFlightsParams
 
 export default function SearchFlightsPage () {
   const [citiesList, setCitiesList] = useState<City[]>([])
   const [flightsList, setFlightsList] = useState<Flight[]>([])
   const [searchStatus, setSearchStatus] = useState<Status>('idle')
+  const [searchError, setSearchError] = useState<string | null>(null)
   const [todayDate] = useState(() => getLocalDateValue())
   const [searchValues, setSearchValues] = useState<SearchValues>(() => ({
     origin: '',
@@ -28,6 +24,8 @@ export default function SearchFlightsPage () {
 
   const loadFlights = useCallback(async (params: SearchValues) => {
     setSearchStatus('submitting')
+    setSearchError(null)
+    setFlightsList([])
 
     try {
       const flights = await searchFlightsRequest(params)
@@ -35,6 +33,7 @@ export default function SearchFlightsPage () {
       setSearchStatus('success')
     } catch {
       setFlightsList([])
+      setSearchError('Не удалось загрузить рейсы. Попробуйте ещё раз.')
       setSearchStatus('error')
     }
   }, [])
@@ -70,6 +69,7 @@ export default function SearchFlightsPage () {
         await loadFlights(initialSearchValues)
       } catch {
         if (!cancelled) {
+          setSearchError('Не удалось загрузить города. Попробуйте обновить страницу.')
           setSearchStatus('error')
         }
       }
@@ -88,6 +88,13 @@ export default function SearchFlightsPage () {
 
     if (!form.checkValidity()) {
       form.reportValidity()
+      return
+    }
+
+    if (searchValues.origin === searchValues.destination) {
+      setFlightsList([])
+      setSearchError('Города отправления и назначения должны отличаться.')
+      setSearchStatus('error')
       return
     }
 
@@ -110,6 +117,7 @@ export default function SearchFlightsPage () {
                 name="search-origin"
                 value={searchValues.origin}
                 onChange={(event) => setSearchValues((values) => ({ ...values, origin: event.target.value }))}
+                required
               >
                 <option value="">Откуда</option>
                 {citiesList.map(city => (<option key={city.code} value={city.code}>{city.name}</option>))}
@@ -125,6 +133,7 @@ export default function SearchFlightsPage () {
                 name="search-destination"
                 value={searchValues.destination}
                 onChange={(event) => setSearchValues((values) => ({ ...values, destination: event.target.value }))}
+                required
               >
                 <option value="">Куда</option>
                 {citiesList.map(city => (<option key={city.code} value={city.code}>{city.name}</option>))}
@@ -155,8 +164,10 @@ export default function SearchFlightsPage () {
                 data-testid="search-passengers"
                 type="number"
                 min="1"
+                max="9"
                 value={searchValues.passengers}
                 onChange={(event) => setSearchValues((values) => ({ ...values, passengers: event.target.value }))}
+                required
               />
             </Form.Group>
           </Col>
@@ -169,7 +180,13 @@ export default function SearchFlightsPage () {
         </Row>
       </Form>
 
-      <Stack data-testid="flight-results" gap={3}>
+      <Stack data-testid="flight-results" gap={3} aria-busy={searchStatus === 'submitting'}>
+        {searchStatus === 'submitting' && (
+          <div className="py-4 text-center" data-testid="flights-loading" role="status">
+            <Spinner animation="border" className="me-2" />
+            Ищем рейсы
+          </div>
+        )}
         {flightsList.map((flight) => (
           <Card data-testid="flight-result-item" key={flight.id}>
             <Card.Body className="p-3">
@@ -194,7 +211,7 @@ export default function SearchFlightsPage () {
                       {flight.price.amount} ₽
                     </div>
                     <Link
-                      to={`booking/${flight.id}`}
+                      to={`/booking/${flight.id}`}
                       data-testid="book-flight"
                       className="bg-primary-subtle border-0 px-4 fw-semibold text-primary btn btn-light"
                     >
@@ -213,7 +230,7 @@ export default function SearchFlightsPage () {
         )}
         {searchStatus === 'error' && (
           <Alert data-testid="flights-error" variant="danger">
-            Ошибка поиска
+            {searchError}
           </Alert>
         )}
       </Stack>

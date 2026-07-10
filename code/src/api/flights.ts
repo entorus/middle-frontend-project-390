@@ -1,6 +1,7 @@
 import { type City, type Flight } from './types'
+import { throwApiError } from './errors'
 
-interface SearchFlightsParams {
+export interface SearchFlightsParams {
   origin: string;
   destination: string;
   date: string;
@@ -11,7 +12,7 @@ export const getCities = async (): Promise<City[]> => {
   const response = await fetch('/api/cities')
 
   if (! response.ok) {
-    throw new Error('Failed to load cities')
+    return throwApiError(response, 'Не удалось загрузить города.')
   }
 
   return await response.json() as City[]
@@ -27,17 +28,17 @@ export const searchFlights = async (params: SearchFlightsParams): Promise<Flight
   const response = await fetch(`/api/flights?${searchParams}`)
 
   if (! response.ok) {
-    throw new Error('Search failed')
+    return throwApiError(response, 'Не удалось загрузить рейсы.')
   }
 
   return await response.json() as Flight[]
 }
 
-export const getFlightById = async (flightId: string): Promise<Flight | null> => {
-  const response = await fetch(`/api/flights/${encodeURIComponent(flightId)}`)
+export const getFlightById = async (flightId: string, signal?: AbortSignal): Promise<Flight> => {
+  const response = await fetch(`/api/flights/${encodeURIComponent(flightId)}`, { signal })
 
   if (! response.ok) {
-    return null
+    return throwApiError(response, 'Не удалось загрузить рейс.')
   }
 
   return await response.json() as Flight

@@ -9,11 +9,11 @@ import NotFoundPage from './pages/NotFoundPage'
 
 function App() {
   return (
-    <Container fluid className="px-0 py-4">
-      <Row className="justify-content-center">
-        <Col xs={12} xxl={10}>
-          <Header />
-          <BrowserRouter>
+    <BrowserRouter>
+      <Container fluid className="px-0 py-4">
+        <Row className="justify-content-center">
+          <Col xs={12} xxl={10}>
+            <Header />
             <Routes>
               <Route path="/" element={<SearchFlightsPage/> } />
               <Route path="lookup" element={<BookingsPage />} />
@@ -21,10 +21,10 @@ function App() {
               <Route path="booking/:flightId" element={<BookingPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
-          </BrowserRouter>
-        </Col>
-      </Row>
-    </Container>
+          </Col>
+        </Row>
+      </Container>
+    </BrowserRouter>
   )
 }
 

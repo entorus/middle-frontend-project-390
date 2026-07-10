@@ -3,9 +3,14 @@ import { Alert, Badge, Button, Card, Col, Row } from 'react-bootstrap'
 import { ErrorMessage, Field, Form, Formik } from 'formik'
 import * as yup from 'yup'
 import { cancelBooking as cancelBookingRequest, getBookingByCode } from '../api/bookings'
+import { ApiError } from '../api/errors'
 import { type BookingData, type BookingSearchParams } from '../api/types'
 
 type BookingSearchValues = BookingSearchParams
+type BookingError = {
+  message: string
+  testId: 'booking-not-found' | 'booking-lookup-error' | 'booking-cancel-error'
+}
 
 const bookingStatusLabels: Record<BookingData['status'], string> = {
   confirmed: 'подтверждена',
@@ -13,7 +18,13 @@ const bookingStatusLabels: Record<BookingData['status'], string> = {
 }
 
 const notFoundMessage = 'Бронь не найдена. Проверьте код бронирования и фамилию.'
+const lookupErrorMessage = 'Не удалось загрузить бронь. Попробуйте ещё раз.'
 const cancelErrorMessage = 'Не удалось отменить бронирование. Попробуйте ещё раз.'
+const initialValues: BookingSearchValues = { code: '', lastName: '' }
+const bookingSearchSchema = yup.object({
+  code: yup.string().trim().required('Обязательное поле'),
+  lastName: yup.string().trim().required('Обязательное поле'),
+})
 
 const normalizeBookingSearchValues = ({ code, lastName }: BookingSearchValues): BookingSearchValues => ({
   code: code.trim(),
@@ -22,19 +33,15 @@ const normalizeBookingSearchValues = ({ code, lastName }: BookingSearchValues): 
 
 export default function BookingsPage() {
   const [foundBooking, setFoundBooking] = useState<BookingData | null>(null)
-  const [bookingError, setBookingError] = useState<string | null>(null)
+  const [bookingError, setBookingError] = useState<BookingError | null>(null)
   const [foundBookingParams, setFoundBookingParams] = useState<BookingSearchValues | null>(null)
   const [isCancelling, setIsCancelling] = useState(false)
-  const initialValues: BookingSearchValues = {
-    code: '',
-    lastName: ''
-  }
-  const bookingSearchSchema = yup.object().shape({
-    code: yup.string().trim().required('Обязательное поле'),
-    lastName: yup.string().trim().required('Обязательное поле'),
-  })
 
   const searchBooking = async (values: BookingSearchValues) => {
+    if (isCancelling) {
+      return
+    }
+
     const searchParams = normalizeBookingSearchValues(values)
 
     try {
@@ -46,8 +53,12 @@ export default function BookingsPage() {
 
       setFoundBooking(result)
       setFoundBookingParams(searchParams)
-    } catch {
-      setBookingError(notFoundMessage)
+    } catch (error) {
+      const isNotFound = error instanceof ApiError && error.status === 404
+      setBookingError({
+        message: isNotFound ? notFoundMessage : lookupErrorMessage,
+        testId: isNotFound ? 'booking-not-found' : 'booking-lookup-error',
+      })
     }
   }
 
@@ -63,7 +74,7 @@ export default function BookingsPage() {
 
       setFoundBooking(result)
     } catch {
-      setBookingError(cancelErrorMessage)
+      setBookingError({ message: cancelErrorMessage, testId: 'booking-cancel-error' })
     } finally {
       setIsCancelling(false)
     }
@@ -77,7 +88,7 @@ export default function BookingsPage() {
       validationSchema={bookingSearchSchema}
     >
       {({ touched, errors, isSubmitting }) => (
-        <Form data-testid="booking-lookup-form">
+        <Form data-testid="booking-lookup-form" aria-busy={isCancelling}>
           <Row className="g-3 mb-4 align-items-start">
             <Col xs={12} md={6} lg={3}>
               <div>
@@ -86,6 +97,7 @@ export default function BookingsPage() {
                   id="code" 
                   name="code" 
                   data-testid="lookup-code"
+                  disabled={isCancelling}
                   className={`form-control ${
                     errors['code'] && touched['code'] ? 'is-invalid' : ''
                   }`}
@@ -105,6 +117,7 @@ export default function BookingsPage() {
                   id="lastName"
                   name="lastName"
                   data-testid="lookup-lastName"
+                  disabled={isCancelling}
                   className={`form-control ${
                     errors['lastName'] && touched['lastName'] ? 'is-invalid' : ''
                   }`}
@@ -125,7 +138,7 @@ export default function BookingsPage() {
                 data-testid="lookup-submit"
                 variant="primary"
                 className="fw-semibold"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isCancelling}
               >
                 Найти
               </Button>
@@ -135,8 +148,8 @@ export default function BookingsPage() {
       )}
     </Formik>
     {bookingError && (
-      <Alert data-testid="booking-not-found" variant="danger">
-        {bookingError}
+      <Alert data-testid={bookingError.testId} variant="danger">
+        {bookingError.message}
       </Alert>
     )}
     {foundBooking && (
