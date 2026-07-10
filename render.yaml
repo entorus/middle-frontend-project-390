@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: flight-booking
+    runtime: node
+    plan: free
+    buildCommand: make install && make build
+    startCommand: make start

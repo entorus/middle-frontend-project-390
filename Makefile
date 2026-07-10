@@ -1,6 +1,11 @@
+.PHONY: install build start
+
 install:
-	npm install
+	npm ci
+	npm --prefix code ci
+
 build:
-	npm run build
+	npm --prefix code run build
+
 start:
-	npx frontend-flight-booking-server start -s code/dist
+	./node_modules/.bin/frontend-flight-booking-server start -s code/dist
