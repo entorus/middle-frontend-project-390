@@ -35,6 +35,13 @@ async function openBookingPage() {
   await page.waitForSelector('[data-testid="booking-form"]')
 }
 
+async function openBookingPageFromSearch() {
+  await page.goto(appUrl)
+  await page.getByTestId('flight-result-item').first().waitFor({ state: 'visible' })
+  await page.getByTestId('book-flight').first().click()
+  await page.getByTestId('booking-form').waitFor({ state: 'visible' })
+}
+
 async function fillBookingForm() {
   await page.getByTestId('contact-email').fill('ivan@example.com')
   await page.getByTestId('contact-phone').fill('+79991234567')
@@ -45,7 +52,7 @@ async function fillBookingForm() {
 }
 
 test('shows booking form for selected flight', async () => {
-  await openBookingPage()
+  await openBookingPageFromSearch()
 
   expect(await page.getByTestId('booking-form').isVisible()).toBe(true)
   expect(await page.getByTestId('booking-flight').textContent()).toContain('Москва → Санкт-Петербург')
@@ -56,6 +63,20 @@ test('shows booking form for selected flight', async () => {
   expect(await page.getByTestId('passenger-0-dob').isVisible()).toBe(true)
   expect(await page.getByTestId('passenger-0-document').isVisible()).toBe(true)
   expect(await page.getByTestId('booking-submit').isVisible()).toBe(true)
+})
+
+test('shows booking form when crypto.randomUUID is unavailable', async () => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window.crypto, 'randomUUID', {
+      configurable: true,
+      value: undefined,
+    })
+  })
+
+  await openBookingPage()
+
+  expect(await page.evaluate(() => typeof crypto.randomUUID)).toBe('undefined')
+  expect(await page.getByTestId('booking-form').isVisible()).toBe(true)
 })
 
 test('adds passenger fields', async () => {

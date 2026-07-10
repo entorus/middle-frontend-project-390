@@ -20,8 +20,10 @@ interface BookingFormProps {
   ) => void | Promise<void>
 }
 
+let nextPassengerId = 0
+
 const createPassenger = (): Passenger => ({
-  id: crypto.randomUUID(),
+  id: `passenger-${nextPassengerId++}`,
   firstName: '',
   lastName: '',
   dateOfBirth: '',

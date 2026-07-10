@@ -48,7 +48,7 @@ afterEach(async () => {
 })
 
 async function openBookingsPage() {
-  await page.goto(`${appUrl}/my-bookings`)
+  await page.goto(`${appUrl}/lookup`)
   await page.waitForSelector('[data-testid="booking-lookup-form"]')
 }
 
@@ -64,7 +64,7 @@ test('shows link to bookings page in navigation', async () => {
   const bookingsLink = page.getByTestId('nav-lookup')
 
   expect(await bookingsLink.isVisible()).toBe(true)
-  expect(await bookingsLink.getAttribute('href')).toBe('/my-bookings')
+  expect(await bookingsLink.getAttribute('href')).toBe('/lookup')
 })
 
 test('searches booking by code and last name', async () => {

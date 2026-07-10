@@ -16,6 +16,7 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<SearchFlightsPage/> } />
+              <Route path="lookup" element={<BookingsPage />} />
               <Route path="my-bookings" element={<BookingsPage />} />
               <Route path="booking/:flightId" element={<BookingPage />} />
               <Route path="*" element={<NotFoundPage />} />
