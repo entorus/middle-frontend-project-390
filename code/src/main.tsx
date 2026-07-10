@@ -6,7 +6,7 @@ import 'bootstrap'
 import 'bootstrap/dist/css/bootstrap.min.css'
 
 Sentry.init({
-  dsn: 'https://41ff33b0ab914764b9bd5b6a80516324@booking.bugsink.com/1',
+  dsn: import.meta.env.VITE_SENTRY_DSN,
 
   // Alternatively, use `process.env.npm_package_version` for a dynamic release version
   // if your build tool supports it.
