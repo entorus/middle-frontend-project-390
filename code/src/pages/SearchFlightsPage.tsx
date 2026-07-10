@@ -25,7 +25,6 @@ export default function SearchFlightsPage () {
 
   const searchFlights = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    throw new Error('Error Thrown on purpose to send it to Bugsink')
     const form = e.currentTarget
 
     if (!form.checkValidity()) {
