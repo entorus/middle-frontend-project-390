@@ -1,20 +1,8 @@
-import { test, expect } from 'vitest'
-import { chromium } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
-test('app opens', async () => {
-  const appUrl = process.env.APP_URL || 'http://localhost:5173'
-  const browser = await chromium.launch()
-  const context = await browser.newContext()
-  const page = await context.newPage()
+test('приложение и API доступны', async ({ page }) => {
+  await page.goto('/')
 
-  await page.goto(appUrl)
-  const heading = page.locator('h1')
-
-  const isVisible = await heading.isVisible()
-  expect(isVisible).toBe(true)
-  
-  const text = await heading.textContent()
-  expect(text?.trim().length).toBeGreaterThan(0)
-
-  await browser.close()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Бронирование авиабилетов')
+  await expect(page.getByTestId('flight-result-item').first()).toBeVisible()
 })

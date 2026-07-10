@@ -1,98 +1,41 @@
-import { afterEach, beforeEach, expect, test } from 'vitest'
-import { chromium, type Browser, type Page } from '@playwright/test'
-import getLocalDateValue from '../src/utils/getLocalDateValue'
+import { expect, test, type Page } from '@playwright/test'
+import { mockCities, mockFlightSearch, type ApiResponse } from './fixtures/api'
+import { flights } from './fixtures/data'
 
-const appUrl = process.env.APP_URL || 'http://localhost:5173'
+const today = '2026-07-10'
 
-const cities = [
-  { code: 'MOW', name: 'Москва', country: 'Россия' },
-  { code: 'LED', name: 'Санкт-Петербург', country: 'Россия' },
-  { code: 'AER', name: 'Сочи', country: 'Россия' },
-]
+const openSearchPage = async (
+  page: Page,
+  responses: ApiResponse[] = [{ body: flights }],
+) => {
+  await page.clock.setFixedTime(new Date(`${today}T12:00:00Z`))
+  await mockCities(page)
+  const requests = await mockFlightSearch(page, responses)
 
-const flights = [
-  {
-    id: 'fl_1',
-    flightNumber: 'SU1234',
-    airline: { code: 'SU', name: 'Аэрофлот' },
-    origin: { code: 'MOW', name: 'Москва', country: 'Россия' },
-    destination: { code: 'LED', name: 'Санкт-Петербург', country: 'Россия' },
-    departureAt: '2026-07-01T08:00:00Z',
-    arrivalAt: '2026-07-01T09:25:00Z',
-    durationMinutes: 85,
-    price: { amount: 5400, currency: 'RUB' },
-    seatsAvailable: 42,
-  },
-  {
-    id: 'fl_2',
-    flightNumber: 'DP202',
-    airline: { code: 'DP', name: 'Победа' },
-    origin: { code: 'MOW', name: 'Москва', country: 'Россия' },
-    destination: { code: 'LED', name: 'Санкт-Петербург', country: 'Россия' },
-    departureAt: '2026-07-01T13:30:00Z',
-    arrivalAt: '2026-07-01T15:00:00Z',
-    durationMinutes: 90,
-    price: { amount: 3200, currency: 'RUB' },
-    seatsAvailable: 18,
-  },
-]
+  await page.goto('/')
+  await expect(page.getByTestId('flight-result-item')).toHaveCount(2)
 
-let browser: Browser
-let page: Page
-let initialSearchUrl: URL | undefined
-
-beforeEach(async () => {
-  browser = await chromium.launch()
-  page = await browser.newPage()
-  initialSearchUrl = undefined
-
-  await page.route('**/api/cities', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(cities),
-    })
-  })
-
-  await page.route('**/api/flights**', async (route) => {
-    initialSearchUrl = new URL(route.request().url())
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(flights),
-    })
-  })
-
-  await page.goto(appUrl)
-  await page.waitForSelector('[data-testid="search-origin"] option[value="MOW"]', { state: 'attached' })
-  await page.waitForSelector('[data-testid="flight-result-item"]')
-})
-
-afterEach(async () => {
-  await browser.close()
-})
-
-async function submitSearch() {
-  const searchDate = await page.getByTestId('search-date').inputValue()
-
-  await page.getByTestId('search-origin').selectOption('MOW')
-  await page.getByTestId('search-destination').selectOption('LED')
-  await page.getByTestId('search-date').fill(searchDate)
-  await page.getByTestId('search-passengers').fill('2')
-  await page.getByTestId('search-submit').click()
-
-  return searchDate
+  return requests
 }
 
-test('loads cities into search selects', async () => {
-  expect(await page.getByTestId('flight-search-form').isVisible()).toBe(true)
-  expect(await page.getByTestId('search-origin').locator('option').allTextContents()).toEqual([
+const submitSearch = async (page: Page) => {
+  await page.getByTestId('search-origin').selectOption('MOW')
+  await page.getByTestId('search-destination').selectOption('LED')
+  await page.getByTestId('search-passengers').fill('2')
+  await page.getByTestId('search-submit').click()
+}
+
+test('загружает города в поля поиска', async ({ page }) => {
+  await openSearchPage(page)
+
+  await expect(page.getByTestId('flight-search-form')).toBeVisible()
+  await expect(page.getByTestId('search-origin').locator('option')).toHaveText([
     'Откуда',
     'Москва',
     'Санкт-Петербург',
     'Сочи',
   ])
-  expect(await page.getByTestId('search-destination').locator('option').allTextContents()).toEqual([
+  await expect(page.getByTestId('search-destination').locator('option')).toHaveText([
     'Куда',
     'Москва',
     'Санкт-Петербург',
@@ -100,106 +43,76 @@ test('loads cities into search selects', async () => {
   ])
 })
 
-test('sets today as default and minimum search date', async () => {
-  const today = getLocalDateValue()
+test('устанавливает сегодняшнюю дату и запрещает прошлые даты', async ({ page }) => {
+  await openSearchPage(page)
 
-  expect(await page.getByTestId('search-date').inputValue()).toBe(today)
-  expect(await page.getByTestId('search-date').getAttribute('min')).toBe(today)
+  await expect(page.getByTestId('search-date')).toHaveValue(today)
+  await expect(page.getByTestId('search-date')).toHaveAttribute('min', today)
 })
 
-test('shows flights on initial load with reasonable defaults', async () => {
-  expect(initialSearchUrl?.searchParams.get('origin')).toBe('MOW')
-  expect(initialSearchUrl?.searchParams.get('destination')).toBe('LED')
-  expect(initialSearchUrl?.searchParams.get('date')).toBe(getLocalDateValue())
-  expect(initialSearchUrl?.searchParams.get('passengers')).toBe('1')
-  expect(await page.getByTestId('search-origin').inputValue()).toBe('MOW')
-  expect(await page.getByTestId('search-destination').inputValue()).toBe('LED')
-  expect(await page.getByTestId('flight-result-item').count()).toBeGreaterThan(0)
+test('сразу показывает рейсы с разумными значениями по умолчанию', async ({ page }) => {
+  const requests = await openSearchPage(page)
+  const initialRequest = requests[0]
+
+  expect(initialRequest.searchParams.get('origin')).toBe('MOW')
+  expect(initialRequest.searchParams.get('destination')).toBe('LED')
+  expect(initialRequest.searchParams.get('date')).toBe(today)
+  expect(initialRequest.searchParams.get('passengers')).toBe('1')
+  await expect(page.getByTestId('search-origin')).toHaveValue('MOW')
+  await expect(page.getByTestId('search-destination')).toHaveValue('LED')
 })
 
-test('shows found flights', async () => {
-  let searchUrl: URL | undefined
+test('отправляет параметры ручного поиска и показывает рейсы', async ({ page }) => {
+  await openSearchPage(page)
+  const requestPromise = page.waitForRequest((request) => {
+    const url = new URL(request.url())
 
-  await page.route('**/api/flights**', async (route) => {
-    searchUrl = new URL(route.request().url())
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(flights),
-    })
+    return url.pathname === '/api/flights' && url.searchParams.get('passengers') === '2'
   })
 
-  const searchDate = await submitSearch()
-  await page.waitForSelector('[data-testid="flight-result-item"]')
+  await submitSearch(page)
+  const requestUrl = new URL((await requestPromise).url())
 
-  expect(searchUrl?.searchParams.get('origin')).toBe('MOW')
-  expect(searchUrl?.searchParams.get('destination')).toBe('LED')
-  expect(searchUrl?.searchParams.get('date')).toBe(searchDate)
-  expect(searchUrl?.searchParams.get('passengers')).toBe('2')
-  expect(await page.getByTestId('flight-results').isVisible()).toBe(true)
-  expect(await page.getByTestId('flight-result-item').count()).toBe(2)
-  expect(await page.getByTestId('book-flight').count()).toBe(2)
-  expect(await page.getByTestId('flights-empty').isVisible()).toBe(false)
-  expect(await page.getByTestId('flights-error').isVisible()).toBe(false)
+  expect(requestUrl.searchParams.get('origin')).toBe('MOW')
+  expect(requestUrl.searchParams.get('destination')).toBe('LED')
+  expect(requestUrl.searchParams.get('date')).toBe(today)
+  expect(requestUrl.searchParams.get('passengers')).toBe('2')
+  await expect(page.getByTestId('flight-result-item')).toHaveCount(2)
+  await expect(page.getByTestId('book-flight')).toHaveCount(2)
+  await expect(page.getByTestId('flights-empty')).toHaveCount(0)
+  await expect(page.getByTestId('flights-error')).toHaveCount(0)
 })
 
-test('does not search flights for past dates', async () => {
-  let searchRequested = false
+test('не отправляет поиск для прошедшей даты', async ({ page }) => {
+  const requests = await openSearchPage(page)
+  const dateInput = page.getByTestId('search-date')
 
-  await page.route('**/api/flights**', async (route) => {
-    searchRequested = true
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([]),
-    })
-  })
-
-  await page.getByTestId('search-origin').selectOption('MOW')
-  await page.getByTestId('search-destination').selectOption('LED')
-  await page.getByTestId('search-date').fill('2000-01-01')
-  await page.getByTestId('search-passengers').fill('2')
+  await dateInput.fill('2000-01-01')
   await page.getByTestId('search-submit').click()
-  await page.waitForTimeout(100)
 
-  const isRangeUnderflow = await page.getByTestId('search-date').evaluate((element) => (
-    (element as HTMLInputElement).validity.rangeUnderflow
-  ))
-
-  expect(isRangeUnderflow).toBe(true)
-  expect(searchRequested).toBe(false)
+  expect(await dateInput.evaluate((element: HTMLInputElement) => element.validity.rangeUnderflow)).toBe(true)
+  expect(requests).toHaveLength(1)
 })
 
-test('shows empty state when flights are not found', async () => {
-  await page.route('**/api/flights**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([]),
-    })
-  })
+test('показывает пустое состояние, когда рейсов нет', async ({ page }) => {
+  await openSearchPage(page, [{ body: flights }, { body: [] }])
 
-  await submitSearch()
-  await page.waitForSelector('[data-testid="flights-empty"]')
+  await submitSearch(page)
 
-  expect(await page.getByTestId('flight-result-item').count()).toBe(0)
-  expect(await page.getByTestId('flights-empty').isVisible()).toBe(true)
-  expect(await page.getByTestId('flights-error').isVisible()).toBe(false)
+  await expect(page.getByTestId('flights-empty')).toBeVisible()
+  await expect(page.getByTestId('flight-result-item')).toHaveCount(0)
+  await expect(page.getByTestId('flights-error')).toHaveCount(0)
 })
 
-test('shows search error', async () => {
-  await page.route('**/api/flights**', async (route) => {
-    await route.fulfill({
-      status: 500,
-      contentType: 'application/json',
-      body: JSON.stringify({ message: 'Search failed' }),
-    })
-  })
+test('показывает ошибку поиска', async ({ page }) => {
+  await openSearchPage(page, [
+    { body: flights },
+    { status: 500, body: { message: 'Search failed' } },
+  ])
 
-  await submitSearch()
-  await page.waitForSelector('[data-testid="flights-error"]')
+  await submitSearch(page)
 
-  expect(await page.getByTestId('flight-result-item').count()).toBe(0)
-  expect(await page.getByTestId('flights-empty').isVisible()).toBe(false)
-  expect(await page.getByTestId('flights-error').isVisible()).toBe(true)
+  await expect(page.getByTestId('flights-error')).toBeVisible()
+  await expect(page.getByTestId('flight-result-item')).toHaveCount(0)
+  await expect(page.getByTestId('flights-empty')).toHaveCount(0)
 })

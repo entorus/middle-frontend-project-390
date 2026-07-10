@@ -1,71 +1,39 @@
-import { afterEach, beforeEach, expect, test } from 'vitest'
-import { chromium, type Browser, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+import type { CreateBookingData } from '../src/api/types'
+import { fulfillJson, mockCities, mockFlightById, mockFlightSearch } from './fixtures/api'
+import { booking, flights } from './fixtures/data'
 
-const appUrl = process.env.APP_URL || 'http://localhost:5173'
-const flightId = 'fl_1'
-
-interface SubmittedBooking {
-  flightId: string
-  contact: {
-    email: string
-    phone: string
-  }
-  passengers: Array<{
-    firstName: string
-    lastName: string
-    dateOfBirth: string
-    documentNumber: string
-  }>
+const openBookingPage = async (page: Page) => {
+  await mockFlightById(page)
+  await page.goto(`/booking/${flights[0].id}`)
+  await expect(page.getByTestId('booking-form')).toBeVisible()
 }
 
-let browser: Browser
-let page: Page
-
-beforeEach(async () => {
-  browser = await chromium.launch()
-  page = await browser.newPage()
-})
-
-afterEach(async () => {
-  await browser.close()
-})
-
-async function openBookingPage() {
-  await page.goto(`${appUrl}/booking/${flightId}`)
-  await page.waitForSelector('[data-testid="booking-form"]')
-}
-
-async function openBookingPageFromSearch() {
-  await page.goto(appUrl)
-  await page.getByTestId('flight-result-item').first().waitFor({ state: 'visible' })
-  await page.getByTestId('book-flight').first().click()
-  await page.getByTestId('booking-form').waitFor({ state: 'visible' })
-}
-
-async function fillBookingForm() {
+const fillBookingForm = async (page: Page, lastName = 'Петров') => {
   await page.getByTestId('contact-email').fill('ivan@example.com')
   await page.getByTestId('contact-phone').fill('+79991234567')
   await page.getByTestId('passenger-0-firstName').fill('Иван')
-  await page.getByTestId('passenger-0-lastName').fill('Петров')
+  await page.getByTestId('passenger-0-lastName').fill(lastName)
   await page.getByTestId('passenger-0-dob').fill('1990-05-20')
   await page.getByTestId('passenger-0-document').fill('4509 123456')
 }
 
-test('shows booking form for selected flight', async () => {
-  await openBookingPageFromSearch()
+test('использует при оформлении именно выбранный рейс', async ({ page }) => {
+  await mockCities(page)
+  await mockFlightSearch(page)
+  await mockFlightById(page)
+  await page.goto('/')
 
-  expect(await page.getByTestId('booking-form').isVisible()).toBe(true)
-  expect(await page.getByTestId('booking-flight').textContent()).toContain('Москва → Санкт-Петербург')
-  expect(await page.getByTestId('contact-email').isVisible()).toBe(true)
-  expect(await page.getByTestId('contact-phone').isVisible()).toBe(true)
-  expect(await page.getByTestId('passenger-0-firstName').isVisible()).toBe(true)
-  expect(await page.getByTestId('passenger-0-lastName').isVisible()).toBe(true)
-  expect(await page.getByTestId('passenger-0-dob').isVisible()).toBe(true)
-  expect(await page.getByTestId('passenger-0-document').isVisible()).toBe(true)
-  expect(await page.getByTestId('booking-submit').isVisible()).toBe(true)
+  const selectedFlight = page.getByTestId('flight-result-item').filter({ hasText: flights[0].flightNumber })
+  await expect(selectedFlight).toHaveCount(1)
+  await selectedFlight.getByTestId('book-flight').click()
+
+  await expect(page).toHaveURL(new RegExp(`/booking/${flights[0].id}$`))
+  await expect(page.getByTestId('booking-flight')).toContainText(flights[0].flightNumber)
+  await expect(page.getByTestId('booking-flight')).toContainText(flights[0].airline.name)
 })
 
-test('shows booking form when crypto.randomUUID is unavailable', async () => {
+test('показывает форму без crypto.randomUUID', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(window.crypto, 'randomUUID', {
       configurable: true,
@@ -73,55 +41,53 @@ test('shows booking form when crypto.randomUUID is unavailable', async () => {
     })
   })
 
-  await openBookingPage()
+  await openBookingPage(page)
 
   expect(await page.evaluate(() => typeof crypto.randomUUID)).toBe('undefined')
-  expect(await page.getByTestId('booking-form').isVisible()).toBe(true)
+  await expect(page.getByTestId('booking-form')).toBeVisible()
 })
 
-test('adds passenger fields', async () => {
-  await openBookingPage()
+test('добавляет поля пассажира', async ({ page }) => {
+  await openBookingPage(page)
 
   await page.getByTestId('add-passenger').click()
 
-  expect(await page.getByTestId('passenger-1-firstName').isVisible()).toBe(true)
-  expect(await page.getByTestId('passenger-1-lastName').isVisible()).toBe(true)
-  expect(await page.getByTestId('passenger-1-dob').isVisible()).toBe(true)
-  expect(await page.getByTestId('passenger-1-document').isVisible()).toBe(true)
+  await expect(page.getByTestId('passenger-1-firstName')).toBeVisible()
+  await expect(page.getByTestId('passenger-1-lastName')).toBeVisible()
+  await expect(page.getByTestId('passenger-1-dob')).toBeVisible()
+  await expect(page.getByTestId('passenger-1-document')).toBeVisible()
 })
 
-test('does not submit empty booking form', async () => {
+test('не отправляет пустую форму', async ({ page }) => {
   let bookingRequestsCount = 0
 
-  page.on('request', (request) => {
-    if (request.url().endsWith('/api/bookings')) {
-      bookingRequestsCount += 1
-    }
+  await page.route('**/api/bookings', async (route) => {
+    bookingRequestsCount += 1
+    await fulfillJson(route, { body: booking, status: 201 })
   })
-  await openBookingPage()
+  await openBookingPage(page)
 
   await page.getByTestId('booking-submit').click()
-  await page.waitForSelector('.invalid-feedback')
 
+  await expect(page.locator('.invalid-feedback')).toHaveCount(6)
   expect(bookingRequestsCount).toBe(0)
 })
 
-test('creates booking and shows success panel', async () => {
-  let submittedBooking: SubmittedBooking | undefined
+test('создаёт бронь с корректными данными и показывает код', async ({ page }) => {
+  let submittedBooking: CreateBookingData | undefined
 
-  page.on('request', (request) => {
-    if (request.url().endsWith('/api/bookings')) {
-      submittedBooking = request.postDataJSON() as SubmittedBooking
-    }
+  await page.route('**/api/bookings', async (route) => {
+    submittedBooking = route.request().postDataJSON() as CreateBookingData
+    await fulfillJson(route, { body: booking, status: 201 })
   })
-  await openBookingPage()
+  await openBookingPage(page)
+  await fillBookingForm(page)
 
-  await fillBookingForm()
   await page.getByTestId('booking-submit').click()
-  await page.waitForSelector('[data-testid="booking-success"]')
 
+  await expect(page.getByTestId('booking-success')).toBeVisible()
   expect(submittedBooking).toEqual({
-    flightId,
+    flightId: flights[0].id,
     contact: {
       email: 'ivan@example.com',
       phone: '+79991234567',
@@ -135,25 +101,28 @@ test('creates booking and shows success panel', async () => {
       },
     ],
   })
-  expect(await page.getByTestId('booking-success').isVisible()).toBe(true)
-  expect((await page.getByTestId('booking-code').textContent())?.trim().length).toBeGreaterThan(0)
+  await expect(page.getByTestId('booking-code')).toHaveText(booking.code)
 })
 
-test('shows booking error', async () => {
-  await openBookingPage()
+test('показывает ошибку при сбое создания брони', async ({ page }) => {
+  await page.route('**/api/bookings', async (route) => {
+    await route.abort('failed')
+  })
+  await openBookingPage(page)
+  await fillBookingForm(page)
 
-  await fillBookingForm()
-  await page.context().setOffline(true)
   await page.getByTestId('booking-submit').click()
-  await page.waitForSelector('[data-testid="booking-error"]')
-  await page.context().setOffline(false)
 
-  expect(await page.getByTestId('booking-error').isVisible()).toBe(true)
+  await expect(page.getByTestId('booking-error')).toContainText('Не удалось оформить бронирование')
 })
 
-test('shows flight not found', async () => {
-  await page.goto(`${appUrl}/booking/unknown-flight-id`)
-  await page.waitForSelector('[data-testid="flight-not-found"]')
+test('показывает сообщение для неизвестного рейса', async ({ page }) => {
+  await mockFlightById(page, 'unknown-flight-id', {
+    status: 404,
+    body: { message: 'Flight not found' },
+  })
 
-  expect(await page.getByTestId('flight-not-found').isVisible()).toBe(true)
+  await page.goto('/booking/unknown-flight-id')
+
+  await expect(page.getByTestId('flight-not-found')).toBeVisible()
 })

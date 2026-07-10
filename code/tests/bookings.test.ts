@@ -1,159 +1,89 @@
-import { afterEach, beforeEach, expect, test } from 'vitest'
-import { chromium, type Browser, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+import { fulfillJson, mockCities, mockFlightSearch } from './fixtures/api'
+import { booking } from './fixtures/data'
 
-const appUrl = process.env.APP_URL || 'http://localhost:5173'
+const bookingApiPattern = /\/api\/bookings\/[^?]+/
 
-const booking = {
-  code: 'E7H8FC',
-  status: 'confirmed',
-  flight: {
-    id: 'fl_1',
-    flightNumber: 'SU1234',
-    airline: { code: 'SU', name: 'Аэрофлот' },
-    origin: { code: 'MOW', name: 'Москва', country: 'Россия' },
-    destination: { code: 'LED', name: 'Санкт-Петербург', country: 'Россия' },
-    departureAt: '2026-07-01T08:00:00Z',
-    arrivalAt: '2026-07-01T09:25:00Z',
-    durationMinutes: 85,
-    price: { amount: 5400, currency: 'RUB' },
-    seatsAvailable: 42,
-  },
-  passengers: [
-    {
-      firstName: 'Petr',
-      lastName: 'Pupkin',
-      dateOfBirth: '1990-05-20',
-      documentNumber: '4509 123456',
-    },
-  ],
-  contact: {
-    email: 'petr@example.com',
-    phone: '+79991234567',
-  },
-  totalPrice: { amount: 5400, currency: 'RUB' },
-  createdAt: '2026-07-01T07:00:00Z',
+const openBookingsPage = async (page: Page) => {
+  await page.goto('/lookup')
+  await expect(page.getByTestId('booking-lookup-form')).toBeVisible()
 }
 
-let browser: Browser | undefined
-let page: Page
-
-beforeEach(async () => {
-  browser = await chromium.launch()
-  page = await browser.newPage()
-})
-
-afterEach(async () => {
-  await browser?.close()
-  browser = undefined
-})
-
-async function openBookingsPage() {
-  await page.goto(`${appUrl}/lookup`)
-  await page.waitForSelector('[data-testid="booking-lookup-form"]')
-}
-
-async function fillBookingSearchForm() {
-  await page.getByTestId('lookup-code').fill('E7H8FC')
-  await page.getByTestId('lookup-lastName').fill('Pupkin')
+const fillBookingSearchForm = async (
+  page: Page,
+  code = booking.code,
+  lastName = booking.passengers[0].lastName,
+) => {
+  await page.getByTestId('lookup-code').fill(code)
+  await page.getByTestId('lookup-lastName').fill(lastName)
   await page.getByTestId('lookup-submit').click()
 }
 
-test('shows link to bookings page in navigation', async () => {
-  await page.goto(appUrl)
+test('ссылка навигации открывает страницу поиска брони', async ({ page }) => {
+  await mockCities(page)
+  await mockFlightSearch(page)
+  await page.goto('/')
 
-  const bookingsLink = page.getByTestId('nav-lookup')
+  const lookupLink = page.getByTestId('nav-lookup')
+  await expect(lookupLink).toHaveAttribute('href', '/lookup')
+  await lookupLink.click()
 
-  expect(await bookingsLink.isVisible()).toBe(true)
-  expect(await bookingsLink.getAttribute('href')).toBe('/lookup')
+  await expect(page).toHaveURL(/\/lookup$/)
+  await expect(page.getByTestId('booking-lookup-form')).toBeVisible()
 })
 
-test('searches booking by code and last name', async () => {
-  let requestedMethod = ''
-  let requestedCode = ''
-  let requestedLastName: string | null = null
-
-  await page.route('**/api/bookings/**', async (route) => {
-    const request = route.request()
-    const url = new URL(request.url())
-    requestedMethod = request.method()
-    requestedCode = url.pathname.split('/').at(-1) ?? ''
-    requestedLastName = url.searchParams.get('lastName')
-
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(booking),
-    })
+test('ищет бронь по коду и фамилии', async ({ page }) => {
+  await page.route(bookingApiPattern, async (route) => {
+    await fulfillJson(route, { body: booking })
   })
+  await openBookingsPage(page)
+  const requestPromise = page.waitForRequest(bookingApiPattern)
 
-  await openBookingsPage()
-  await fillBookingSearchForm()
-  await page.waitForSelector('[data-testid="booking-details"]')
+  await fillBookingSearchForm(page)
+  const request = await requestPromise
+  const requestUrl = new URL(request.url())
 
-  const cardText = await page.getByTestId('booking-details').textContent()
-  expect(requestedMethod).toBe('GET')
-  expect(requestedCode).toBe('E7H8FC')
-  expect(requestedLastName).toBe('Pupkin')
-  expect(await page.getByTestId('booking-code').textContent()).toBe('E7H8FC')
-  expect(cardText).toContain('Аэрофлот')
-  expect(cardText).toContain('Petr Pupkin')
-  expect(cardText).toContain('5400')
-  expect(await page.getByTestId('booking-status').getAttribute('data-status')).toBe('confirmed')
+  expect(request.method()).toBe('GET')
+  expect(requestUrl.pathname.split('/').at(-1)).toBe(booking.code)
+  expect(requestUrl.searchParams.get('lastName')).toBe(booking.passengers[0].lastName)
+  await expect(page.getByTestId('booking-code')).toHaveText(booking.code)
+  await expect(page.getByTestId('booking-details')).toContainText(booking.flight.airline.name)
+  await expect(page.getByTestId('booking-details')).toContainText('Пётр Пупкин')
+  await expect(page.getByTestId('booking-details')).toContainText('5400')
+  await expect(page.getByTestId('booking-status')).toHaveAttribute('data-status', 'confirmed')
 })
 
-test('shows error when booking is not found', async () => {
-  await page.route('**/api/bookings/**', async (route) => {
-    await route.fulfill({
-      status: 404,
-      contentType: 'application/json',
-      body: JSON.stringify({ message: 'Not found' }),
-    })
+test('показывает понятное сообщение для неверных данных', async ({ page }) => {
+  await page.route(bookingApiPattern, async (route) => {
+    await fulfillJson(route, { status: 404, body: { message: 'Not found' } })
   })
+  await openBookingsPage(page)
 
-  await openBookingsPage()
-  await fillBookingSearchForm()
-  await page.waitForSelector('[data-testid="booking-not-found"]')
+  await fillBookingSearchForm(page, 'ZZZZZZ', 'Петров')
 
-  expect(await page.getByTestId('booking-not-found').textContent()).toContain('Бронь не найдена')
-  expect(await page.getByTestId('booking-details').count()).toBe(0)
+  await expect(page.getByTestId('booking-not-found')).toContainText('Бронь не найдена')
+  await expect(page.getByTestId('booking-details')).toHaveCount(0)
 })
 
-test('cancels active booking and updates status', async () => {
-  let cancelMethod = ''
-  let cancelLastName: string | null = null
+test('отменяет найденную бронь и обновляет статус', async ({ page }) => {
+  await page.route(bookingApiPattern, async (route) => {
+    const response = route.request().method() === 'DELETE'
+      ? { ...booking, status: 'cancelled' as const }
+      : booking
 
-  await page.route('**/api/bookings/**', async (route) => {
-    const request = route.request()
-    const url = new URL(request.url())
-
-    if (request.method() === 'DELETE') {
-      cancelMethod = request.method()
-      cancelLastName = url.searchParams.get('lastName')
-
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ...booking, status: 'cancelled' }),
-      })
-      return
-    }
-
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(booking),
-    })
+    await fulfillJson(route, { body: response })
   })
-
-  await openBookingsPage()
-  await fillBookingSearchForm()
-  await page.waitForSelector('[data-testid="cancel-booking"]')
+  await openBookingsPage(page)
+  await fillBookingSearchForm(page)
+  await expect(page.getByTestId('cancel-booking')).toBeVisible()
+  const deleteRequestPromise = page.waitForRequest((request) => (
+    bookingApiPattern.test(request.url()) && request.method() === 'DELETE'
+  ))
 
   await page.getByTestId('cancel-booking').click()
-  await page.waitForFunction(() => document.querySelector('[data-testid="booking-status"]')?.getAttribute('data-status') === 'cancelled')
+  const deleteRequest = await deleteRequestPromise
 
-  expect(cancelMethod).toBe('DELETE')
-  expect(cancelLastName).toBe('Pupkin')
-  expect(await page.getByTestId('booking-status').getAttribute('data-status')).toBe('cancelled')
-  expect(await page.getByTestId('cancel-booking').count()).toBe(0)
+  expect(new URL(deleteRequest.url()).searchParams.get('lastName')).toBe(booking.passengers[0].lastName)
+  await expect(page.getByTestId('booking-status')).toHaveAttribute('data-status', 'cancelled')
+  await expect(page.getByTestId('cancel-booking')).toHaveCount(0)
 })
