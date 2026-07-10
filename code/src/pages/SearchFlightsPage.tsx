@@ -265,61 +265,62 @@ export default function SearchFlightsPage () {
         </Row>
       </Form>
 
-      <Stack data-testid="flight-results" gap={3} aria-busy={searchState.status === 'submitting'}>
-        {searchState.status === 'submitting' && (
-          <div className="py-4 text-center" data-testid="flights-loading" role="status">
-            <Spinner animation="border" className="me-2" />
-            Ищем рейсы
-          </div>
-        )}
-        {searchState.flights.map((flight) => (
-          <Card data-testid="flight-result-item" key={flight.id}>
-            <Card.Body className="p-3">
-              <Row className="g-3 align-items-center">
-                <Col>
-                  <Card.Title as="h2" className="h5 mb-1 fw-bold text-black">
-                    {flight.airline.name} · {flight.flightNumber}
-                  </Card.Title>
-                  <Card.Text className="mb-1 text-black">{flight.origin.name} → {flight.destination.name}</Card.Text>
-                  <Card.Text className="mb-0 text-secondary">
-                    {formatDate(flight.departureAt)} — {formatDate(flight.arrivalAt)} {flight.durationMinutes} мин
-                  </Card.Text>
-                </Col>
+      {searchState.status === 'submitting' ? (
+        <div className="py-4 text-center" data-testid="flights-loading" role="status">
+          <Spinner animation="border" className="me-2" />
+          Ищем рейсы
+        </div>
+      ) : (
+        <Stack data-testid="flight-results" gap={3}>
+          {searchState.flights.map((flight) => (
+            <Card data-testid="flight-result-item" key={flight.id}>
+              <Card.Body className="p-3">
+                <Row className="g-3 align-items-center">
+                  <Col>
+                    <Card.Title as="h2" className="h5 mb-1 fw-bold text-black">
+                      {flight.airline.name} · {flight.flightNumber}
+                    </Card.Title>
+                    <Card.Text className="mb-1 text-black">{flight.origin.name} → {flight.destination.name}</Card.Text>
+                    <Card.Text className="mb-0 text-secondary">
+                      {formatDate(flight.departureAt)} — {formatDate(flight.arrivalAt)} {flight.durationMinutes} мин
+                    </Card.Text>
+                  </Col>
 
-                <Col xs={12} md="auto">
-                  <Stack
-                    direction="horizontal"
-                    gap={3}
-                    className="justify-content-between justify-content-md-end"
-                  >
-                    <div className="fs-5 fw-bold text-nowrap text-black">
-                      {formatPrice(flight.price)}
-                    </div>
-                    <Link
-                      to={`/booking/${flight.id}`}
-                      state={{ passengerCount: resultPassengerCount }}
-                      data-testid="book-flight"
-                      className="bg-primary-subtle border-0 px-4 fw-semibold text-primary btn btn-light"
+                  <Col xs={12} md="auto">
+                    <Stack
+                      direction="horizontal"
+                      gap={3}
+                      className="justify-content-between justify-content-md-end"
                     >
-                      Забронировать
-                    </Link>
-                  </Stack>
-                </Col>
-              </Row>
-            </Card.Body>
-          </Card>
-        ))}
-        {(searchState.status === 'success' && searchState.flights.length === 0) && (
-          <Alert data-testid="flights-empty" variant="warning">
-            Рейсов не найдено
-          </Alert>
-        )}
-        {searchState.status === 'error' && (
-          <Alert data-testid="flights-error" variant="danger">
-            {searchState.error}
-          </Alert>
-        )}
-      </Stack>
+                      <div className="fs-5 fw-bold text-nowrap text-black">
+                        {formatPrice(flight.price)}
+                      </div>
+                      <Link
+                        to={`/booking/${flight.id}`}
+                        state={{ passengerCount: resultPassengerCount }}
+                        data-testid="book-flight"
+                        className="bg-primary-subtle border-0 px-4 fw-semibold text-primary btn btn-light"
+                      >
+                        Забронировать
+                      </Link>
+                    </Stack>
+                  </Col>
+                </Row>
+              </Card.Body>
+            </Card>
+          ))}
+          {(searchState.status === 'success' && searchState.flights.length === 0) && (
+            <Alert data-testid="flights-empty" variant="warning">
+              Рейсов не найдено
+            </Alert>
+          )}
+          {searchState.status === 'error' && (
+            <Alert data-testid="flights-error" variant="danger">
+              {searchState.error}
+            </Alert>
+          )}
+        </Stack>
+      )}
     </>
   )
 }

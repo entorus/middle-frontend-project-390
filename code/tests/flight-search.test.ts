@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { fulfillJson, mockCities, mockFlightSearch, type ApiResponse } from './fixtures/api'
 import { cities, flights } from './fixtures/data'
+import getLocalDateValue from '../src/utils/getLocalDateValue'
 
 const today = '2026-07-10'
 
@@ -134,4 +135,40 @@ test('показывает ошибку поиска', async ({ page }) => {
   await expect(page.getByTestId('flights-error')).toBeVisible()
   await expect(page.getByTestId('flight-result-item')).toHaveCount(0)
   await expect(page.getByTestId('flights-empty')).toHaveCount(0)
+})
+
+test('показывает контейнер результатов только после ответа API', async ({ page }) => {
+  let finishFlightRequest = () => {}
+  const flightResponse = new Promise<void>((resolve) => {
+    finishFlightRequest = resolve
+  })
+
+  await page.clock.setFixedTime(new Date(`${today}T12:00:00Z`))
+  await mockCities(page)
+  await page.route(/\/api\/flights\?/, async (route) => {
+    await flightResponse
+    await fulfillJson(route, { body: flights })
+  })
+  await page.goto('/')
+
+  await expect(page.getByTestId('flights-loading')).toBeVisible()
+  await expect(page.getByTestId('flight-results')).toHaveCount(0)
+  finishFlightRequest()
+
+  await expect(page.getByTestId('flight-results')).toBeVisible()
+  await expect(page.getByTestId('flight-result-item')).toHaveCount(2)
+})
+
+test('реальный сервер возвращает список и обрабатывает пустой поиск', async ({ page }) => {
+  await page.goto('/')
+
+  await expect(page.getByTestId('flight-results')).toBeVisible()
+  expect(await page.getByTestId('flight-result-item').count()).toBeGreaterThan(0)
+
+  const dateWithoutFlights = new Date()
+  dateWithoutFlights.setDate(dateWithoutFlights.getDate() + 45)
+  await page.getByTestId('search-date').fill(getLocalDateValue(dateWithoutFlights))
+  await page.getByTestId('search-submit').click()
+
+  await expect(page.getByTestId('flights-empty')).toBeVisible()
 })
